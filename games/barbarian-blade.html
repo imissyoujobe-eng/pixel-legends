@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Barbarian Blade</title>
+</head>
+<body>
+<script src="../lib/kit.js"></script>
+<script src="../lib/plat.js"></script>
+<script>
+// Barbarian Blade: a sword-swinging hero crosses lava caves and ruined keeps to face the guardian at the end of each realm.
+K.theme({ bg: '#140a06', ink: '#fff2e0', accent: '#ff8a2a', accentInk: '#200a00' });
+const VW = 320, VH = 240, T = 16;
+K.screen(VW, VH);
+K.hud(['score', 'weapon', 'lives']);
+K.pad({ dpad: '4', buttons: [{ id: 'b', label: 'SWING' }, { id: 'a', label: 'JUMP' }] });
+
+const E = '................', G = '################';
+// l lizardman, k skeleton, v bat, x axe, f fire sword, h heart (health), s shield, L lava, ^ spikes, X exit, K guardian
+const CH = {
+  start: [E, E, E, E, E, E, E, E, E, E, E, E, '.S..............', G, G],
+  plain: [E, E, E, E, E, E, E, '.......v........', E, '.........===....', E, '...l.......h....', E, G, G],
+  lava:  [E, E, E, E, E, E, E, '........v.......', E, E, E, '....===...===...', E, '###LLLLLLLLLL###', '###LLLLLLLLLL###'],
+  steps: [E, E, E, E, E, E, '...........x....', '..........####..', E, '......####......', '.....k..........', '..####..........', E, G, G],
+  spikes:[E, E, E, E, E, E, E, E, '.....v..........', E, '............f...', '.....====..===..', '....l...........', '####^^^^^^^#####', '################'],
+  keep:  [E, E, E, E, E, E, '..........s.....', '.........====...', E, E, '..====..........', '.....k.....k....', E, G, G],
+  boss:  ['................................', '................................', '................................', '................................', '................................', '................................', '................................', '................................', '................................', '................................', '................................', '.........................K......', '................................', '################################', '################################'],
+};
+const STAGES = [
+  { n: 'Wild Plains', sky: ['#5a3a6a', '#ffa05a'], g: '#5a4030', top: '#6a9a3a', chunks: ['start', 'plain', 'steps', 'lava', 'plain', 'keep', 'boss'] },
+  { n: 'Fire Caves', sky: ['#1a0a0a', '#6a1a0a'], g: '#4a2a1a', top: '#8a4a2a', chunks: ['start', 'lava', 'spikes', 'steps', 'lava', 'plain', 'spikes', 'boss'] },
+  { n: 'Iron Keep', sky: ['#1a1a2a', '#4a4a6a'], g: '#4a4a52', top: '#7a7a8a', chunks: ['start', 'keep', 'spikes', 'lava', 'steps', 'keep', 'lava', 'spikes', 'boss'] },
+];
+const WEAP = { sword: { n: 'SWORD', reach: 22, dmg: 1 }, axe: { n: 'AXE', reach: 28, dmg: 2 }, fire: { n: 'FIRE SWORD', reach: 22, dmg: 1, shot: true } };
+let state = 'title', si, w, p, cam, foes, items, shots, eshots, fx, score, lives, hp, weap, shield, swingT, deadT, msg, msgT, boss, best = K.best('barbarianblade');
+function newGame() { si = 0; score = 0; lives = 3; weap = 'sword'; shield = 0; load(); state = 'play'; }
+function title() { K.card({ title: 'BARBARIAN BLADE', text: 'SWING your blade at anything that moves. Press ▼ + SWING in the air for a downward stab. Grab weapons: axe (longer, harder), fire sword (shoots flame). The shield halves damage for a while. Hearts heal. Watch out for lava and spikes, then slay the guardian of each realm. Keyboard: Z jump, X swing.', best: best ? 'BEST ' + best : '', button: 'Draw Sword', onStart: newGame }); }
+function load() {
+  const S = STAGES[si]; w = P.world(P.join(S.chunks.map(k => CH[k]))); P.SOLID = '#'; P.ONEWAY = '='; P.HURT = '^L';
+  foes = []; items = []; shots = []; eshots = []; fx = []; cam = { x: 0, y: 0 }; boss = null; msg = 'REALM ' + (si + 1) + ': ' + S.n.toUpperCase(); msgT = 2;
+  for (let y = 0; y < w.rows; y++) for (let x = 0; x < w.cols; x++) { const ch = w.g[y][x], X = x * T, Y = y * T;
+    if (ch === 'S') w.start = { x: X, y: Y };
+    else if (ch === 'l') foes.push(P.walker(X, Y - 6, { k: 'liz', w: 12, h: 20, vx: -32, hp: 2 + si, smart: true, cd: 1 }));
+    else if (ch === 'k') foes.push(P.walker(X, Y - 6, { k: 'skel', w: 12, h: 20, vx: -26, hp: 3 + si, smart: true, cd: K.rnd(1, 2) }));
+    else if (ch === 'v') foes.push({ k: 'bat', x: X, y: Y, w: 12, h: 8, hp: 1, alive: true, ph: K.rnd(0, 6), y0: Y });
+    else if ('xfhs'.includes(ch)) items.push({ k: ch, x: X + 2, y: Y + 2, w: 12, h: 12 });
+    else if (ch === 'K') { boss = { k: 'boss', x: X, y: Y - 24, w: 26, h: 40, vx: 0, vy: 0, hp: 18 + si * 6, max: 18 + si * 6, cd: 1.5, alive: true, inv: 0 }; foes.push(boss); }
+    else continue; w.g[y][x] = '.'; }
+  respawn(true);
+}
+function respawn(first) { p = P.player(first ? w.start.x : Math.max(w.start.x, cam.x + 30), first ? w.start.y : 20, { w: 12, h: 22, run: 78, sprint: 110, jump: 340 }); p.inv = first ? 0 : 2; hp = 10; deadT = 0; swingT = 0; }
+function hurt(n) { if (p.inv > 0 || deadT > 0) return; hp -= shield > 0 ? Math.ceil(n / 2) : n; p.inv = 1; p.vy = -150; p.vx = -p.face * 80; K.beep(160, 0.15, { type: 'sawtooth' }); if (hp <= 0) { deadT = 1.6; lives--; K.beep(300, 0.7, { to: 50 }); } }
+function hitFoe(f, d) { if (f.k === 'boss') { if (f.inv > 0) return; f.inv = 0.35; } f.hp -= d; K.beep(250, 0.05); K.noise(0.05, 0.2); if (f.k !== 'boss' && f.k !== 'bat') { f.vx = -f.vx; f.x += Math.sign(f.x - p.x) * 6; }
+  if (f.hp <= 0) { f.alive = false; score += f.k === 'boss' ? 5000 : f.k === 'bat' ? 100 : 250; for (let i = 0; i < 10; i++) fx.push({ x: f.x + f.w / 2, y: f.y + 8, vx: K.rnd(-60, 60), vy: K.rnd(-90, 0), t: 0.5, c: f.k === 'skel' ? '#ddd' : '#7aca5a' }); if (Math.random() < 0.2 && f.k !== 'boss') items.push({ k: 'h', x: f.x, y: f.y + f.h - 12, w: 12, h: 12 }); } }
+function update(dt) {
+  if (state !== 'play') return;
+  if (msgT > 0) msgT -= dt;
+  if (deadT > 0) { deadT -= dt; if (deadT <= 0) { if (lives <= 0) { state = 'over'; best = K.saveBest('barbarianblade', score); K.card({ title: 'FALLEN HERO', text: 'You fell in realm ' + (si + 1) + ' with ' + score + ' points.', best: 'BEST ' + best, button: 'Again', onStart: newGame }); return; } respawn(false); } return; }
+  P.control(w, p, dt, { run: false });
+  if (p.fell) { p.fell = false; hp = 0; p.inv = 0; hurt(99); return; }
+  const hz = P.touches(w, p, P.HURT); if (hz) hurt(hz.ch === 'L' ? 4 : 3);
+  if (shield > 0) shield -= dt;
+  if (swingT > 0) swingT -= dt;
+  if (K.hit('b') && swingT <= 0) {
+    const W2 = WEAP[weap], stab = !p.ground && K.down('down'); swingT = 0.25; K.beep(500, 0.06, { to: 200, type: 'triangle' });
+    const box = stab ? { x: p.x - 2, y: p.y + p.h, w: p.w + 4, h: 18 } : { x: p.face > 0 ? p.x + p.w : p.x - W2.reach, y: p.y - 4, w: W2.reach, h: p.h + 4 };
+    foes.forEach(f => { if (f.alive && P.overlap(box, f)) { hitFoe(f, W2.dmg); if (stab) { p.vy = -220; } } });
+    if (W2.shot) shots.push({ x: p.x + p.w / 2, y: p.y + 8, vx: p.face * 200, t: 0.8 });
+  }
+  shots.forEach(s => { s.x += s.vx * dt; s.t -= dt; for (const f of foes) if (f.alive && s.x > f.x && s.x < f.x + f.w && s.y > f.y && s.y < f.y + f.h) { s.t = 0; hitFoe(f, 1); break; } }); shots = shots.filter(s => s.t > 0);
+  items.forEach(it => { if (!it.got && P.overlap(p, it)) { it.got = true; K.tune([660, 880], 0.06);
+    if (it.k === 'x') { weap = 'axe'; msg = 'AXE!'; } else if (it.k === 'f') { weap = 'fire'; msg = 'FIRE SWORD!'; } else if (it.k === 'h') { hp = Math.min(10, hp + 4); msg = '+HEALTH'; } else { shield = 20; msg = 'SHIELD!'; } msgT = 1; score += 100; } });
+  items = items.filter(it => !it.got);
+  foes.forEach(f => { if (!f.alive) return; if (f.x < cam.x - 80 || f.x > cam.x + VW + 80) return;
+    if (f.k === 'liz' || f.k === 'skel') { if (Math.abs(f.x - p.x) < 100 && Math.abs(f.y - p.y) < 24) f.vx = Math.sign(p.x - f.x) * (f.k === 'liz' ? 45 : 32); P.stepWalker(w, f, dt);
+      if (f.k === 'skel') { f.cd -= dt; if (f.cd <= 0 && Math.abs(f.x - p.x) < 150) { f.cd = K.rnd(1.6, 2.6); eshots.push({ x: f.x + 6, y: f.y + 4, vx: Math.sign(p.x - f.x) * 90, vy: -150, bone: 1 }); } } }
+    if (f.k === 'bat') { f.ph += dt * 3; f.x += Math.sign(p.x - f.x) * 40 * dt; f.y = f.y0 + Math.sin(f.ph) * 24 + (p.y - f.y0) * 0.3 * (Math.abs(p.x - f.x) < 80 ? 1 : 0); }
+    if (f.k === 'boss') { if (f.inv > 0) f.inv -= dt; f.vy = Math.min(300, (f.vy || 0) + 800 * dt); P.move(w, f, dt); f.cd -= dt; if (f.ground) f.vx *= 0.92;
+      if (f.cd <= 0) { f.cd = f.hp < f.max / 2 ? 1.1 : 1.7; const r = Math.random(); if (r < 0.4) { f.vy = -330; f.vx = Math.sign(p.x - f.x) * 100; } else if (r < 0.8) { for (let i = 0; i < 3; i++) eshots.push({ x: f.x + 13, y: f.y + 14, vx: Math.sign(p.x - f.x) * (90 + i * 30), vy: -60 - i * 40, fire: 1 }); K.beep(200, 0.2, { to: 500 }); } else { f.vx = Math.sign(p.x - f.x) * 160; } } }
+    if (P.overlap(p, f)) hurt(f.k === 'boss' ? 3 : 2); });
+  eshots.forEach(s => { s.vy += 300 * dt; s.x += s.vx * dt; s.y += s.vy * dt; if (P.isSolid(P.tile(w, s.x, s.y))) s.dead = true; if (s.x > p.x && s.x < p.x + p.w && s.y > p.y && s.y < p.y + p.h) { s.dead = true; hurt(2); } }); eshots = eshots.filter(s => !s.dead && s.y < w.py);
+  foes = foes.filter(f => f.alive);
+  fx.forEach(e => { e.t -= dt; e.x += e.vx * dt; e.y += e.vy * dt; e.vy += 300 * dt; }); fx = fx.filter(e => e.t > 0);
+  if (boss && !boss.alive) { score += 1000 + hp * 100; K.tune([392, 523, 659, 784, 1046], 0.12); si++; boss = null;
+    if (si >= STAGES.length) { state = 'over'; best = K.saveBest('barbarianblade', score); K.card({ title: 'LEGEND!', text: 'Every guardian has fallen. Final score ' + score + '.', best: 'BEST ' + best, button: 'Again', onStart: newGame }); return; }
+    load(); return; }
+  cam = P.cam(w, p, cam, VW, VH);
+  K.set('score', score); K.set('weapon', WEAP[weap].n + (shield > 0 ? ' ⛨' : '')); K.set('lives', '♥'.repeat(Math.max(0, lives)));
+}
+function hero(c, x, y, face, t, moving, swing) {
+  const step = moving ? Math.sin(t / 70) * 2 : 0;
+  c.fillStyle = '#5a3a1a'; c.fillRect(x + 2 + step * 0.5, y + 14, 4, 8); c.fillRect(x + 7 - step * 0.5, y + 14, 4, 8);
+  c.fillStyle = '#d09a6a'; c.fillRect(x + 1, y + 5, 11, 10); c.fillStyle = '#7a4a2a'; c.fillRect(x + 1, y + 12, 11, 3);
+  c.fillStyle = '#d09a6a'; c.fillRect(x + 3, y - 2, 7, 7); c.fillStyle = '#2a1a0a'; c.fillRect(x + 2, y - 3, 9, 3); c.fillRect(face > 0 ? x + 2 : x + 8, y - 1, 3, 8);
+  if (shield > 0) { c.fillStyle = '#aab'; c.fillRect(face > 0 ? x - 2 : x + 11, y + 5, 3, 9); }
+  const W2 = WEAP[weap]; c.save(); c.translate(x + 6 + face * 5, y + 8); c.scale(face, 1); c.rotate(swing ? 0 : -1.2);
+  c.fillStyle = weap === 'fire' ? (Math.floor(t / 80) % 2 ? '#ff8a2a' : '#ffd23a') : '#dde'; c.fillRect(0, -1.5, W2.reach - 4, 3); if (weap === 'axe') { c.fillStyle = '#ccd'; c.fillRect(W2.reach - 10, -6, 7, 10); } c.fillStyle = '#a07a2a'; c.fillRect(-2, -3, 3, 6); c.restore();
+}
+function draw(c, t) {
+  const S = STAGES[si] || STAGES[0], cx = Math.round(cam.x), cy = Math.round(cam.y);
+  const g = c.createLinearGradient(0, 0, 0, VH); g.addColorStop(0, S.sky[0]); g.addColorStop(1, S.sky[1]); c.fillStyle = g; c.fillRect(0, 0, VW, VH);
+  c.fillStyle = 'rgba(0,0,0,.3)'; for (let i = -1; i < 6; i++) { const x = i * 90 - (cx * 0.25 % 90); c.beginPath(); c.moveTo(x, 200); c.lineTo(x + 45, 90 + (i % 2) * 30); c.lineTo(x + 90, 200); c.fill(); }
+  if (!w) return;
+  P.eachVisible(w, cam, VW, VH, (ch, x, y, tx, ty) => {
+    if (ch === '#') { c.fillStyle = S.g; c.fillRect(x, y, T, T); c.fillStyle = 'rgba(0,0,0,.2)'; c.fillRect(x + ((tx * 7 + ty * 3) % 10), y + 6, 4, 3); if (P.tile(w, tx * T, (ty - 1) * T) !== '#') { c.fillStyle = S.top; c.fillRect(x, y, T, 3); } }
+    else if (ch === '=') { c.fillStyle = '#8a6a4a'; c.fillRect(x, y, T, 5); c.fillStyle = '#5a3a1a'; c.fillRect(x, y + 4, T, 1); }
+    else if (ch === 'L') { c.fillStyle = Math.floor(t / 150 + tx) % 2 ? '#ff5a1a' : '#ff8a2a'; c.fillRect(x, y + 4, T, T - 4); c.fillStyle = '#ffd23a'; c.fillRect(x + (t / 30 + tx * 5) % 14, y + 4, 2, 2); }
+    else if (ch === '^') { c.fillStyle = '#aaa'; for (let i = 0; i < 4; i++) { c.beginPath(); c.moveTo(x + i * 4, y + T); c.lineTo(x + i * 4 + 2, y + 4); c.lineTo(x + i * 4 + 4, y + T); c.fill(); } }
+  });
+  items.forEach(it => { const x = it.x - cx, y = it.y - cy + Math.sin(t / 200) * 2; if (it.k === 'h') { c.fillStyle = '#ff3a5a'; c.beginPath(); c.arc(x + 4, y + 5, 3.5, 0, 7); c.arc(x + 9, y + 5, 3.5, 0, 7); c.fill(); c.beginPath(); c.moveTo(x + 1, y + 6); c.lineTo(x + 6.5, y + 12); c.lineTo(x + 12, y + 6); c.fill(); } else { c.fillStyle = it.k === 'x' ? '#ccd' : it.k === 'f' ? '#ff8a2a' : '#88a'; c.fillRect(x, y, 12, 12); K.text(c, it.k === 'x' ? 'A' : it.k === 'f' ? 'F' : 'S', x + 6, y + 6, 8, '#222'); } });
+  foes.forEach(f => { const x = Math.round(f.x) - cx, y = Math.round(f.y) - cy; if (x < -40 || x > VW + 40) return; const face = Math.sign(f.vx || (p.x - f.x)) || 1;
+    if (f.k === 'liz') { c.fillStyle = '#5a9a3a'; c.fillRect(x + 2, y + 4, 9, 11); c.fillRect(x + (face > 0 ? 6 : -1), y, 8, 6); c.fillRect(x + (face > 0 ? -5 : 10), y + 10, 7, 3); c.fillStyle = '#3a6a2a'; c.fillRect(x + 2, y + 15, 3, 5); c.fillRect(x + 8, y + 15, 3, 5); c.fillStyle = '#ff3'; c.fillRect(x + (face > 0 ? 11 : 1), y + 1, 2, 2); }
+    else if (f.k === 'skel') { c.fillStyle = '#ddd'; c.fillRect(x + 3, y, 7, 7); c.fillRect(x + 5, y + 7, 3, 8); c.fillRect(x + 2, y + 9, 9, 2); c.fillRect(x + 3, y + 15, 2, 5); c.fillRect(x + 8, y + 15, 2, 5); c.fillStyle = '#222'; c.fillRect(x + 4, y + 2, 2, 2); c.fillRect(x + 7, y + 2, 2, 2); }
+    else if (f.k === 'bat') { c.fillStyle = '#5a2a6a'; const fl = Math.sin(t / 50) * 4; c.fillRect(x + 4, y + 2, 4, 5); c.beginPath(); c.moveTo(x + 4, y + 3); c.lineTo(x - 4, y + fl); c.lineTo(x + 4, y + 6); c.moveTo(x + 8, y + 3); c.lineTo(x + 16, y + fl); c.lineTo(x + 8, y + 6); c.fill(); }
+    else if (f.k === 'boss') { if (f.inv > 0 && Math.floor(t / 50) % 2) return; c.fillStyle = '#4a4a5a'; c.fillRect(x + 2, y + 10, 22, 20); c.fillStyle = '#2a2a3a'; c.fillRect(x + 3, y + 30, 8, 10); c.fillRect(x + 15, y + 30, 8, 10); c.fillStyle = '#6a6a7a'; c.fillRect(x + 6, y, 14, 11); c.fillStyle = '#ff3a2a'; c.fillRect(x + 9, y + 4, 8, 2); c.fillStyle = '#ddd'; c.fillRect(x + (face > 0 ? 24 : -18), y + 14, 20, 3);
+      c.fillStyle = 'rgba(0,0,0,.5)'; c.fillRect(VW - 110, 8, 102, 7); c.fillStyle = '#ff8a2a'; c.fillRect(VW - 109, 9, 100 * f.hp / f.max, 5); K.text(c, 'GUARDIAN', VW - 58, 22, 7, '#fff'); } });
+  if (deadT <= 0 && !(p.inv > 0 && Math.floor(t / 80) % 2) && state !== 'title') hero(c, Math.round(p.x) - cx, Math.round(p.y) - cy, p.face, t, p.vx, swingT > 0.1);
+  shots.forEach(s => { c.fillStyle = Math.floor(t / 60) % 2 ? '#ff8a2a' : '#ffd23a'; c.beginPath(); c.arc(s.x - cx, s.y - cy, 4, 0, 7); c.fill(); });
+  eshots.forEach(s => { c.fillStyle = s.fire ? '#ff6a2a' : '#eee'; c.fillRect(s.x - cx - 2, s.y - cy - 2, 5, 4); });
+  fx.forEach(e => { c.fillStyle = e.c; c.fillRect(e.x - cx, e.y - cy, 2, 2); });
+  c.fillStyle = 'rgba(0,0,0,.5)'; c.fillRect(8, 8, 62, 7); c.fillStyle = hp > 3 ? '#7aff4a' : '#ff4a4a'; c.fillRect(9, 9, 6 * Math.max(0, hp), 5);
+  if (msgT > 0) K.text(c, msg, VW / 2, 40, 12, '#fff');
+}
+newGame(); state = 'title'; title(); K.run(update, draw);
+</script>
+</body>
+</html>
