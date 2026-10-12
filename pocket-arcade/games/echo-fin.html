@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Echo Fin</title>
+</head>
+<body>
+<script src="../lib/kit.js"></script>
+<script src="../lib/art.js"></script>
+<script>
+// Echo Fin: swim through walls of seahorses in murky water. Ping your sonar to find the gaps. The squid is right behind you.
+K.theme({ bg: '#041a2a', ink: '#e8fbff', accent: '#3ef0c9', accentInk: '#002a22' });
+const W = 320, H = 240, DX = 110, TOP = 26, BOT = 222;
+K.screen(W, H);
+K.hud(['score', 'lives']);
+K.pad({ dpad: 'ud', buttons: [{ id: 'a', label: 'PING' }] });
+
+let state = 'title', d, y, vy, speed, walls, nextWall, squid, lives, score, ping, pingCd, shells, power, hurt, bubbles, best = K.best('echofin');
+function title() { K.card({ title: 'ECHO FIN', text: 'The water is dark. Tap PING to send out sonar and light up the gap in each wall of seahorses. Bump a wall and the giant squid behind you gets closer. Grab a glowing shell to turn the tables.', best: best ? 'BEST ' + best : '', button: 'Dive in', onStart: start }); }
+function start() {
+  d = 0; y = 120; vy = 0; speed = 70; walls = []; nextWall = 220; squid = 120; lives = 3; score = 0; ping = 0; pingCd = 0; shells = []; power = 0; hurt = 0;
+  bubbles = Array.from({ length: 30 }, () => ({ x: Math.random() * W, y: Math.random() * H, s: K.rnd(0.5, 2) }));
+  state = 'play'; hud();
+}
+function hud() { K.set('score', score); K.set('lives', '♥'.repeat(Math.max(0, lives))); }
+function gapH() { return Math.max(34, 54 - score / 120); }
+
+function update(dt) {
+  if (state !== 'play') return;
+  speed = Math.min(150, 70 + score / 40);
+  d += speed * dt;
+  const mv = (K.down('down') ? 1 : 0) - (K.down('up') ? 1 : 0);
+  if (K.ptr.down) vy += K.clamp((K.ptr.y - y) * 6, -300, 300) * dt * 3;
+  vy += mv * 420 * dt; vy *= Math.pow(0.05, dt);
+  y = K.clamp(y + vy * dt, TOP + 6, BOT - 6);
+  if (pingCd > 0) pingCd -= dt; if (ping > 0) ping -= dt;
+  if ((K.hit('a') || (K.ptr.tapped && K.ptr.x > W * 0.7)) && pingCd <= 0) { ping = 1.6; pingCd = 1.1; K.beep(1800, 0.25, { type: 'sine', to: 900, vol: 0.06 }); K.beep(1800, 0.2, { type: 'sine', to: 900, vol: 0.03, at: 0.25 }); }
+  if (power > 0) power -= dt; if (hurt > 0) hurt -= dt;
+  // walls
+  while (nextWall < d + W) {
+    const g = gapH(), gy = K.rnd(TOP + g / 2 + 4, BOT - g / 2 - 4);
+    walls.push({ x: nextWall, gy, g, passed: false, broken: false });
+    if (Math.random() < 0.18) shells.push({ x: nextWall + 70, y: K.rnd(TOP + 20, BOT - 20) });
+    nextWall += K.rnd(120, 170) - Math.min(40, score / 40);
+  }
+  for (const w of walls) {
+    const sx = w.x - d + DX;
+    if (!w.passed && !w.broken && sx < DX + 10 && sx > DX - 8) {
+      if (Math.abs(y - w.gy) > w.g / 2 - 5) {
+        if (power > 0) { w.broken = true; score += 50; K.noise(0.2, 0.2); }
+        else { d -= 34; vy = (y < w.gy ? -1 : 1) * 60; squid -= 40; hurt = 0.6; K.beep(120, 0.25, { type: 'square', vol: 0.07 }); }
+      } else { w.passed = true; score += 10; hud(); K.beep(880, 0.06, { type: 'triangle', vol: 0.04 }); }
+    }
+  }
+  walls = walls.filter(w => w.x - d + DX > -30);
+  for (const s of shells) { const sx = s.x - d + DX; if (!s.got && Math.abs(sx - DX) < 12 && Math.abs(s.y - y) < 12) { s.got = true; power = 6; score += 25; K.tune([523, 784, 1047], 0.06, { type: 'triangle' }); } }
+  shells = shells.filter(s => !s.got && s.x - d + DX > -20);
+  // the squid creeps back if you're slow, falls back if you swim clean
+  squid = Math.min(140, squid + dt * 6);
+  if (power > 0 && squid < 120) { squid += dt * 30; if (squid > 100) { score += 0; } }
+  if (squid <= 0) {
+    lives--; hud(); K.noise(0.6, 0.35);
+    if (lives <= 0) return over();
+    squid = 120; d += 0; hurt = 1.5;
+  }
+  if (Math.random() < dt * 3) hud();
+  for (const b of bubbles) { b.x -= speed * 0.5 * b.s * dt; b.y -= 10 * dt; if (b.x < 0) { b.x = W; b.y = Math.random() * H; } if (b.y < TOP) b.y = BOT; }
+}
+function over() { state = 'over'; best = K.saveBest('echofin', score); K.card({ title: 'GOTCHA!', text: 'The squid caught you after ' + score + ' points.', best: 'BEST ' + best, button: 'Swim again', onStart: start }); }
+
+function draw(c, t) {
+  const D = d || 0;
+  const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#1a8ab0'); g.addColorStop(0.45, '#0b4a6a'); g.addColorStop(1, '#021019');
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  // god rays from the surface
+  c.save(); c.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 6; i++) { const rx = ((i * 71 - D * 0.15) % 420 + 420) % 420 - 50, sw = Math.sin(t / 1400 + i) * 14; const rg = c.createLinearGradient(0, TOP, 0, BOT); rg.addColorStop(0, 'rgba(140,230,255,.16)'); rg.addColorStop(1, 'rgba(140,230,255,0)'); c.fillStyle = rg; c.beginPath(); c.moveTo(rx, TOP); c.lineTo(rx + 22, TOP); c.lineTo(rx + 70 + sw, BOT); c.lineTo(rx + 30 + sw, BOT); c.fill(); }
+  c.restore();
+  // far reef silhouettes
+  A.ridge(c, D, { factor: 0.15, base: BOT - 24, amp: 34, col: '#08324a', edge: 'rgba(80,180,220,.25)', seed: 4, fog: 'rgba(2,16,25,.6)' });
+  A.ridge(c, D, { factor: 0.35, base: BOT - 6, amp: 20, col: '#062436', edge: 'rgba(80,180,220,.3)', seed: 9 });
+  // surface with sparkling waves
+  const sg = c.createLinearGradient(0, 0, 0, TOP); sg.addColorStop(0, '#c8f2ff'); sg.addColorStop(1, '#5ac0e6'); c.fillStyle = sg; c.fillRect(0, 0, W, TOP);
+  c.fillStyle = '#e8fbff'; for (let x = -((D * 0.5) % 20); x < W; x += 20) { c.beginPath(); c.ellipse(x + 5, TOP - 2 + Math.sin(t / 300 + x / 20) * 1.2, 8, 2.5, 0, 0, 7); c.fill(); }
+  c.fillStyle = 'rgba(255,255,255,.8)'; for (let i = 0; i < 10; i++) if (Math.sin(t / 200 + i * 3) > 0.7) c.fillRect((i * 37 - D * 0.5 % 320 + 640) % 320, 6 + (i * 7) % 14, 2, 1);
+  c.fillStyle = 'rgba(20,90,130,.6)'; c.fillRect(0, TOP, W, 2);
+  // sandy seabed with pebbles, shells and swaying kelp
+  const bg = c.createLinearGradient(0, BOT, 0, H); bg.addColorStop(0, '#5a5236'); bg.addColorStop(1, '#2a2618'); c.fillStyle = bg; c.fillRect(0, BOT, W, H - BOT);
+  for (let i = 0; i < 60; i++) { const px = ((A.hash(i, 3) * 640 - D) % 640 + 640) % 640 - 160; c.fillStyle = i % 4 ? 'rgba(200,180,120,.35)' : 'rgba(30,20,10,.4)'; c.fillRect(px, BOT + 3 + A.hash(i, 4) * (H - BOT - 4), 1 + (i % 3), 1); }
+  for (let i = -1; i < W / 40 + 2; i++) { const k = Math.floor(D / 40) + i, kx = k * 40 - D + A.hash(k, 1) * 20; if (A.hash(k, 2) < 0.35) { A.ball(c, kx, BOT + 2, 5 + A.hash(k, 5) * 4, '#4a5260'); } }
+  for (let i = -1; i < W / 26 + 2; i++) { const k = Math.floor(D / 26) + i, kx = k * 26 - D + A.hash(k, 7) * 10, h = 22 + A.hash(k, 8) * 40;
+    c.strokeStyle = A.hash(k, 9) < 0.5 ? '#2f6a2a' : '#4a7a2a'; c.lineWidth = 3; c.lineCap = 'round'; c.beginPath(); c.moveTo(kx, BOT + 2);
+    for (let s2 = 1; s2 <= 5; s2++) c.lineTo(kx + Math.sin(t / 600 + k + s2 * 0.8) * s2 * 1.6, BOT + 2 - h * s2 / 5); c.stroke();
+    c.fillStyle = '#5a9a3a'; for (let s2 = 1; s2 < 5; s2++) { c.beginPath(); c.ellipse(kx + Math.sin(t / 600 + k + s2 * 0.8) * s2 * 1.6 + 3, BOT + 2 - h * s2 / 5, 3.5, 1.5, 0.5, 0, 7); c.fill(); } }
+  c.lineCap = 'butt'; c.fillStyle = A.INK; c.fillRect(0, BOT, W, 1);
+  if (!walls) { drawFin(c, 120, 120, t); return; }
+  for (const b of bubbles) { c.strokeStyle = 'rgba(200,240,255,.55)'; c.lineWidth = 0.8; c.beginPath(); c.arc(b.x, b.y, b.s * 0.9 + 0.6, 0, 7); c.stroke(); c.fillStyle = 'rgba(255,255,255,.6)'; c.fillRect(b.x - b.s * 0.4, b.y - b.s * 0.4, 1, 1); }
+  // walls: dim unless close or lit by sonar
+  for (const w of walls) {
+    if (w.broken) continue;
+    const sx = w.x - d + DX, near = sx - DX < 60, lit = ping > 0 && sx - DX < 40 + (1.6 - ping) * 260;
+    const a = near ? 0.9 : lit ? Math.min(1, ping) : 0.08;
+    for (let yy = TOP + 4; yy < BOT; yy += 13) {
+      if (Math.abs(yy + 5 - w.gy) < w.g / 2) continue;
+      c.globalAlpha = a; seahorse(c, sx, yy + 3, t + yy * 40);
+    }
+    if (lit && !near) { c.globalAlpha = Math.min(1, ping); c.strokeStyle = '#3ef0c9'; c.lineWidth = 1; c.strokeRect(sx - 8, w.gy - w.g / 2, 16, w.g); }
+    c.globalAlpha = 1;
+  }
+  for (const s of shells) { const sx = s.x - d + DX, r = 7 + Math.sin(t / 150) * 1.2; A.glow(c, sx, s.y, 22, '255,160,220', 0.45); c.fillStyle = A.INK; c.beginPath(); c.arc(sx, s.y + 1, r + 0.8, Math.PI, 0); c.lineTo(sx + 3, s.y + 5); c.lineTo(sx - 3, s.y + 5); c.fill(); c.fillStyle = '#ffd8ec'; c.beginPath(); c.arc(sx, s.y + 1, r, Math.PI, 0); c.lineTo(sx + 3, s.y + 4); c.lineTo(sx - 3, s.y + 4); c.fill(); c.strokeStyle = '#ff7ab8'; c.lineWidth = 0.9; for (let k = -2; k <= 2; k++) { c.beginPath(); c.moveTo(sx, s.y + 4); c.lineTo(sx + Math.sin(k * 0.6) * r, s.y + 1 - Math.cos(k * 0.6) * r); c.stroke(); } }
+  if (ping > 0) { c.strokeStyle = 'rgba(62,240,201,' + ping / 1.6 + ')'; c.lineWidth = 2; c.beginPath(); c.arc(DX, y, (1.6 - ping) * 260, -1.1, 1.1); c.stroke(); }
+  // squid
+  const qx = DX - 30 - squid * 0.7;
+  if (qx > -40) {
+    const qy = y + Math.sin(t / 200) * 10, col = power > 0 ? '#8a7aa8' : '#c0306a', dk = power > 0 ? '#4a3a68' : '#6a1038';
+    c.lineCap = 'round';
+    for (let k = 0; k < 6; k++) { c.strokeStyle = dk; c.lineWidth = 4 - k * 0.3; c.beginPath(); c.moveTo(qx - 14, qy - 6 + k * 2.6); for (let s2 = 1; s2 <= 6; s2++) c.lineTo(qx - 14 - s2 * 6, qy - 8 + k * 3.4 + Math.sin(t / 110 + k + s2 * 0.9) * s2 * 1.1); c.stroke();
+      c.strokeStyle = col; c.lineWidth = 2.4 - k * 0.2; c.stroke(); }
+    c.lineCap = 'butt';
+    A.ball(c, qx, qy, 13, col); c.fillStyle = col; c.beginPath(); c.moveTo(qx + 6, qy - 11); c.quadraticCurveTo(qx + 34, qy, qx + 6, qy + 11); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.25)'; for (let k = 0; k < 6; k++) { c.beginPath(); c.arc(qx - 4 + (k % 3) * 8, qy - 4 + Math.floor(k / 3) * 8, 1.6, 0, 7); c.fill(); }
+    c.fillStyle = '#fff6c8'; c.beginPath(); c.ellipse(qx + 6, qy - 3, 4.5, 3.5, 0, 0, 7); c.fill(); c.fillStyle = '#000'; c.fillRect(qx + 6, qy - 5, 2, 4);
+    if (power <= 0) A.glow(c, qx + 6, qy - 3, 14, '255,80,120', 0.3);
+  }
+  if (!(hurt > 0 && Math.floor(t / 70) % 2)) drawFin(c, DX, y, t);
+  if (power > 0) { c.strokeStyle = '#ffe9f5'; c.globalAlpha = 0.5 + Math.sin(t / 80) * 0.3; c.beginPath(); c.arc(DX, y, 16, 0, 7); c.stroke(); c.globalAlpha = 1; }
+  K.text(c, 'SQUID', 30, BOT + 9, 7, '#ff8fc7');
+  c.fillStyle = 'rgba(255,255,255,.2)'; c.fillRect(54, BOT + 6, 100, 5); c.fillStyle = squid < 40 ? '#ff4f6d' : '#3ef0c9'; c.fillRect(54, BOT + 6, 100 * Math.max(0, squid) / 140, 5);
+  if (pingCd <= 0 && state === 'play') K.text(c, 'PING READY', W - 50, BOT + 9, 7, '#3ef0c9');
+}
+function seahorse(c, x, y, t) {
+  const b = Math.sin(t / 300) * 1;
+  c.fillStyle = '#3a1a00'; c.beginPath(); c.ellipse(x, y + b, 4.4, 5.6, 0, 0, 7); c.fill();
+  c.fillStyle = '#ffb02e'; c.beginPath(); c.ellipse(x, y + b, 3.4, 4.8, 0, 0, 7); c.fill();
+  c.fillStyle = '#ffd88a'; c.beginPath(); c.ellipse(x + 1, y + b + 0.5, 1.6, 3.4, 0, 0, 7); c.fill();
+  c.fillStyle = '#ffb02e'; c.beginPath(); c.ellipse(x - 1.5, y - 5 + b, 2.6, 2.2, 0, 0, 7); c.fill(); c.fillRect(x - 6, y - 6 + b, 4, 1.8);
+  c.strokeStyle = '#d07a10'; c.lineWidth = 1.6; c.beginPath(); c.moveTo(x - 1, y + 4 + b); c.quadraticCurveTo(x - 3, y + 8 + b, x, y + 8 + b); c.stroke();
+  c.fillStyle = '#ff8a2e'; for (let i = -3; i < 4; i += 2) c.fillRect(x + 3, y + i + b, 1.4, 1);
+  c.fillStyle = '#000'; c.fillRect(x - 2, y - 6 + b, 1.2, 1.2);
+}
+function drawFin(c, x, y, t) {
+  const tail = Math.sin(t / 90) * 3;
+  const g = c.createLinearGradient(0, y - 7, 0, y + 7); g.addColorStop(0, '#2a6aa8'); g.addColorStop(0.5, '#6ab8e8'); g.addColorStop(1, '#d8f0ff');
+  c.fillStyle = '#2a6aa8'; c.beginPath(); c.moveTo(x - 14, y); c.quadraticCurveTo(x - 20, y + tail * 0.3, x - 25, y - 7 + tail); c.lineTo(x - 21, y + tail * 0.5); c.lineTo(x - 25, y + 7 + tail); c.quadraticCurveTo(x - 20, y + tail * 0.3, x - 14, y); c.fill();
+  c.beginPath(); c.moveTo(x - 3, y - 5); c.quadraticCurveTo(x - 6, y - 13, x - 11, y - 12); c.quadraticCurveTo(x - 4, y - 8, x + 4, y - 5); c.fill();
+  c.fillStyle = g; c.beginPath(); c.ellipse(x, y, 17, 6.5, 0, 0, 7); c.fill();
+  c.fillStyle = '#2a6aa8'; c.beginPath(); c.moveTo(x + 15, y - 1); c.quadraticCurveTo(x + 22, y - 1, x + 22, y + 1); c.lineTo(x + 15, y + 2); c.fill();
+  c.fillStyle = 'rgba(255,255,255,.5)'; c.beginPath(); c.ellipse(x - 2, y - 3, 8, 1.5, 0, 0, 7); c.fill();
+  c.fillStyle = '#4a8ac0'; c.beginPath(); c.ellipse(x + 1, y + 3, 4, 1.6, 0.5 + Math.sin(t / 120) * 0.3, 0, 7); c.fill();
+  c.fillStyle = '#fff'; c.beginPath(); c.arc(x + 9, y - 2, 2.4, 0, 7); c.fill(); c.fillStyle = '#000'; c.beginPath(); c.arc(x + 9.6, y - 2, 1.3, 0, 7); c.fill();
+  c.fillStyle = '#2a4a6a'; c.fillRect(x + 13, y + 1.5, 4, 0.8);
+}
+title();
+{ const _draw = draw; draw = function (c, t) { _draw(c, t); A.ambient(c, W, H, t, 'dust', 22); A.vignette(c, W, H, 0.45); }; }
+K.run(update, draw);
+</script>
+</body>
+</html>
