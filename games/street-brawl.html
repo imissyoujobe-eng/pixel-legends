@@ -7,19 +7,22 @@
 </head>
 <body>
 <script src="../lib/kit.js"></script>
+<script src="../lib/art.js"></script>
 <script src="../lib/brawl.js"></script>
 <script>
 // Street Brawl: twin-fist street fighting. Punch combos, jump kicks, a spinning back kick and whatever the gang drops: bats, pipes and knives.
 const ZMIN = B.ZMIN, ZMAX = B.ZMAX;
 function city(sky, wall, win, floor) {
+  const pal = Object.assign({}, A.PAL.stone, { base: floor, hi: A.shade(floor, 0.18), lo: A.shade(floor, -0.25), mortar: A.shade(floor, -0.55) });
   return function (c, cx, t) {
-    const g = c.createLinearGradient(0, 0, 0, ZMIN); g.addColorStop(0, sky[0]); g.addColorStop(1, sky[1]); c.fillStyle = g; c.fillRect(0, 0, 320, ZMIN);
-    for (let i = -1; i < 8; i++) { const bx = i * 60 - (cx * 0.4 % 60); c.fillStyle = '#1a1424'; c.fillRect(bx, 40 + (Math.abs(i * 37 + Math.floor(cx * 0.4 / 60) * 37) % 40), 52, 200); }
-    for (let i = -1; i < 6; i++) { const bx = i * 80 - (cx % 80); c.fillStyle = wall; c.fillRect(bx, 70, 78, ZMIN - 70); c.fillStyle = win; c.fillRect(bx + 10, 84, 18, 24); c.fillRect(bx + 46, 84, 18, 24); c.fillStyle = 'rgba(0,0,0,.4)'; c.fillRect(bx + 28, 116, 22, ZMIN - 116); }
-    c.fillStyle = floor; c.fillRect(0, ZMIN - 8, 320, 240); c.fillStyle = 'rgba(0,0,0,.2)'; for (let x = -(cx % 40); x < 320; x += 40) c.fillRect(x, ZMIN - 8, 2, 90); c.fillStyle = 'rgba(255,255,255,.08)'; c.fillRect(0, ZMIN - 8, 320, 3);
+    A.sky(c, 320, ZMIN, { top: sky[0], mid: sky[1], bottom: A.shade(sky[1], 0.3), stars: sky[0] === '#101820' || sky[0] === '#200a10', clouds: false }, t * 1000);
+    A.skyline(c, cx, { factor: 0.25, base: ZMIN - 30, col: 'rgba(10,8,20,.75)', amp: 60 });
+    A.facades(c, cx, { factor: 0.75, base: ZMIN - 8, h: 92, w: 80, cols: [wall, A.shade(wall, 0.12), A.shade(wall, -0.1)], awn: ['#c03a3a', '#3a7ac0', '#3a9a5a'], signs: ['#ff4a8a', '#4ad8ff', '#ffd23a'], lit: win === '#ffd88a' ? 0.5 : 0.3 });
+    c.fillStyle = A.INK; c.fillRect(0, ZMIN - 10, 320, 3); c.fillStyle = '#8a8a90'; c.fillRect(0, ZMIN - 9, 320, 2);
+    A.floor(c, cx, ZMIN - 8, 240, 320, pal);
+    for (let x = -(cx % 120); x < 320; x += 120) { c.fillStyle = 'rgba(230,220,120,.5)'; c.fillRect(x, ZMIN + 40, 40, 2); }
   };
-}
-const look = (top, legs, hair, extra) => Object.assign({ skin: '#e0b088', hair, top, legs, belt: '#222' }, extra || {});
+}const look = (top, legs, hair, extra) => Object.assign({ skin: '#e0b088', hair, top, legs, belt: '#222' }, extra || {});
 B.start({
   title: 'STREET BRAWL', key: 'streetbrawl', button: 'Fight',
   theme: { bg: '#120c18', ink: '#fff0f0', accent: '#ff4a6a', accentInk: '#fff' },

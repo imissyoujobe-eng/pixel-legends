@@ -8,10 +8,11 @@
 <body>
 <script src="../lib/kit.js"></script>
 <script src="../lib/plat.js"></script>
+<script src="../lib/art.js"></script>
 <script>
 // Knight Fright: a knight in shining (soon missing) armor storms a haunted graveyard to rescue the princess. One hit takes your armor, the next takes you.
 K.theme({ bg: '#0a0a12', ink: '#eef0ff', accent: '#7ad0ff', accentInk: '#001a2a' });
-const VW = 320, VH = 240, T = 16;
+const VW = 256, VH = 192, T = 16;
 K.screen(VW, VH);
 K.hud(['score', 'weapon', 'lives']);
 K.pad({ dpad: '4', buttons: [{ id: 'b', label: 'THROW' }, { id: 'a', label: 'JUMP' }] });
@@ -101,14 +102,14 @@ function knight(c, x, y, face, t, moving) {
 }
 function draw(c, t) {
   const S = STAGES[si] || STAGES[0], cx = Math.round(cam.x), cy = Math.round(cam.y);
-  const g = c.createLinearGradient(0, 0, 0, VH); g.addColorStop(0, S.sky[0]); g.addColorStop(1, S.sky[1]); c.fillStyle = g; c.fillRect(0, 0, VW, VH);
-  c.fillStyle = 'rgba(255,255,230,.8)'; c.beginPath(); c.arc(60, 46, 16, 0, 7); c.fill(); c.fillStyle = S.sky[0]; c.beginPath(); c.arc(66, 42, 14, 0, 7); c.fill();
-  c.fillStyle = 'rgba(0,0,0,.45)'; for (let i = -1; i < 7; i++) { const x = i * 64 - (cx * 0.3 % 64); c.fillRect(x + 30, 110, 4, 100); c.beginPath(); c.moveTo(x + 32, 90); c.lineTo(x + 10, 140); c.lineTo(x + 54, 140); c.fill(); }
+  const L = ART[si] || ART[0]; A.sky(c, VW, VH, L.sky, t);
+  c.save(); c.translate(0, Math.round(-cy * 0.9)); L.layers.forEach(o => o.t === 'trees' ? A.trees(c, cx, o) : o.t === 'graves' ? graves(c, cx, o) : A.ridge(c, cx, o)); c.restore();
+  c.fillStyle = 'rgba(160,200,180,.10)'; for (let i = 0; i < 3; i++) c.fillRect(0, 120 + i * 18 + Math.sin(t / 900 + i) * 4 - cy * 0.5, VW, 8);
   if (!w) return;
   P.eachVisible(w, cam, VW, VH, (ch, x, y, tx, ty) => {
-    if (ch === '#') { c.fillStyle = S.g; c.fillRect(x, y, T, T); if (P.tile(w, tx * T, (ty - 1) * T) !== '#') { c.fillStyle = S.top; c.fillRect(x, y, T, 4); c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(x + 3, y + 1, 2, 3); } }
-    else if (ch === 't') { c.fillStyle = '#8a8a9a'; c.fillRect(x + 2, y + 2, 12, 14); c.beginPath(); c.arc(x + 8, y + 3, 6, Math.PI, 0); c.fill(); c.fillStyle = '#5a5a6a'; c.fillRect(x + 7, y + 4, 2, 7); c.fillRect(x + 5, y + 6, 6, 2); }
-    else if (ch === '=') { c.fillStyle = '#6a5a4a'; c.fillRect(x, y, T, 4); }
+    if (ch === '#') artTile(c, '#', x, y, tx, ty, si, '#', L.pal);
+    else if (ch === 't') tomb(c, x, y, tx);
+    else if (ch === '=') A.ledge(c, x, y, T, A.PAL.wood);
     else if (ch === 'X') { c.fillStyle = '#5a5a6a'; c.fillRect(x, y, T, T); c.fillStyle = '#2a2a3a'; for (let i = 2; i < T; i += 4) c.fillRect(x + i, y, 2, T); }
   });
   items.forEach(it => { const x = it.x - cx, y = it.y - cy; if (it.k === 'A') { c.fillStyle = '#c8d4e8'; c.beginPath(); c.arc(x + 6, y + 7, 6, 0, 7); c.fill(); K.text(c, 'A', x + 6, y + 7, 7, '#223'); } else { c.fillStyle = '#ffd23a'; c.fillRect(x, y, 12, 12); K.text(c, { l: 'L', k: 'D', o: 'T', x: 'X' }[it.k], x + 6, y + 6, 7, '#222'); } });
@@ -126,6 +127,16 @@ function draw(c, t) {
   fx.forEach(e => { c.fillStyle = e.c; c.fillRect(e.x - cx, e.y - cy, 2, 2); });
   if (msgT > 0) K.text(c, msg, VW / 2, 40, 12, '#fff');
 }
+const ART = [
+  { pal: Object.assign({}, A.PAL.earth, { base: '#4a3a34', hi: '#6a564a', lo: '#2e2420', grass: '#3a6a3a', grassHi: '#5a8a4a', grassLo: '#24442a' }), sky: { top: '#050818', mid: '#1a2a4a', bottom: '#4a3a5a', stars: true, sun: '#f0f0d0', moon: true, sunX: 60, sunY: 40, sunR: 15, sunGlow: '200,220,255', cloud: 'rgba(160,170,200,.35)' }, layers: [{ factor: 0.12, base: 150, amp: 40, col: '#1a1e34', edge: 'rgba(160,180,255,.18)', seed: 3 }, { t: 'trees', factor: 0.3, base: 190, col: '#10121e', kind: 'pine', spacing: 30, size: 1.4 }, { t: 'graves', factor: 0.5, base: 205, col: '#2a2a38' }] },
+  { pal: Object.assign({}, A.PAL.earth, { base: '#4a3a3a', hi: '#6a5454', lo: '#2e2222', grass: '#5a5a3a', grassHi: '#7a7a4a', grassLo: '#3a3a22' }), sky: { top: '#0a0510', mid: '#3a1a2a', bottom: '#8a3a3a', sun: '#ffd0a0', sunY: 80, sunR: 18, cloud: 'rgba(200,140,140,.3)' }, layers: [{ factor: 0.15, base: 165, amp: 30, col: '#24121a', mesa: true, edge: 'rgba(0,0,0,.3)', seed: 8 }, { t: 'graves', factor: 0.4, base: 200, col: '#1a0c12', houses: true }] },
+  { pal: A.PAL.castle, sky: { top: '#050000', mid: '#2a0505', bottom: '#6a0a0a', clouds: false, sun: '#ff5a3a', sunY: 50, sunR: 20, sunGlow: '255,60,40' }, layers: [{ factor: 0.15, base: 170, amp: 50, col: '#1a0404', mesa: true, edge: 'rgba(255,60,30,.35)', seed: 2 }, { t: 'graves', factor: 0.35, base: 205, col: '#0e0202', houses: true }] },
+];
+function graves(c, camX, o) { const off = camX * o.factor; for (let i = Math.floor(off / 40) - 1; i < Math.floor((off + VW) / 40) + 2; i++) { const x = i * 40 - off + A.hash(i, 1) * 20; c.fillStyle = o.col; if (o.houses && A.hash(i, 2) < 0.5) { const h = 30 + A.hash(i, 3) * 25; c.fillRect(x, o.base - h, 26, h + 300); c.beginPath(); c.moveTo(x - 3, o.base - h); c.lineTo(x + 13, o.base - h - 14); c.lineTo(x + 29, o.base - h); c.fill(); c.fillStyle = 'rgba(255,200,90,.5)'; if (A.hash(i, 4) < 0.6) c.fillRect(x + 9, o.base - h + 8, 4, 5); } else { c.fillRect(x, o.base - 12, 9, 300); c.beginPath(); c.arc(x + 4.5, o.base - 12, 4.5, Math.PI, 0); c.fill(); c.fillRect(x + 13, o.base - 16, 2, 16); c.fillRect(x + 10, o.base - 12, 8, 2); } } c.fillStyle = o.col; c.fillRect(0, o.base, VW, 300); }
+function tomb(c, x, y, tx) { A.shadow(c, x + 8, y + 16, 8); c.fillStyle = A.INK; c.fillRect(x + 1.4, y + 2.4, 13.2, 13.6); c.beginPath(); c.arc(x + 8, y + 3, 6.6, Math.PI, 0); c.fill(); const g = c.createLinearGradient(x, 0, x + 16, 0); g.addColorStop(0, '#a8a8b8'); g.addColorStop(1, '#5a5a6a'); c.fillStyle = g; c.fillRect(x + 2, y + 3, 12, 13); c.beginPath(); c.arc(x + 8, y + 3, 6, Math.PI, 0); c.fill(); c.fillStyle = '#4a4a5a'; c.fillRect(x + 7, y + 4, 2, 8); c.fillRect(x + 5, y + 6, 6, 2); c.fillStyle = '#4a7a3a'; c.fillRect(x + 2, y + 14, 4, 2); c.fillRect(x + 10, y + 15, 3, 1); }
+function artTile(c, ch, x, y, tx, ty, i, set, pal) { const sol = (a, b) => a < 0 || a >= w.cols || b >= w.rows || (b >= 0 && set.indexOf(w.g[b][a]) >= 0); A.tile(c, ch + i, x, y, A.edges(sol, tx, ty), tx, ty, pal); }
+knight = A.ink(knight);
+{ const _draw = draw; draw = function (c, t) { _draw(c, t); if (w) { A.ambient(c, VW, VH, t, si === 2 ? 'ember' : 'dust', 14); A.vignette(c, VW, VH, 0.5); } }; }
 newGame(); state = 'title'; title(); K.run(update, draw);
 </script>
 </body>

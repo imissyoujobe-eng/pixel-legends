@@ -7,6 +7,7 @@
 </head>
 <body>
 <script src="../lib/kit.js"></script>
+<script src="../lib/art.js"></script>
 <script>
 // Girder Gauntlet: climb the construction site past the barrels the Wrecker bot keeps rolling down, and rescue the puppy at the top.
 K.theme({ bg: '#0a0a14', ink: '#fff6ea', accent: '#ff5a36', accentInk: '#fff' });
@@ -95,14 +96,15 @@ function die() { deadT = 2; K.tune([392, 330, 262, 196], 0.15, { type: 'sawtooth
 function over() { state = 'over'; best = K.saveBest('girder', score); K.card({ title: 'GAME OVER', text: 'You reached stage ' + stage + ' with ' + score + ' points.', best: 'BEST ' + best, button: 'Climb again', onStart: () => { stage = 1; score = 0; lives = 3; begin(); state = 'play'; } }); }
 
 function draw(c, t) {
-  c.fillStyle = '#0a0a14'; c.fillRect(0, 0, W, H);
-  c.fillStyle = 'rgba(255,255,255,.06)'; for (let i = 0; i < 12; i++) c.fillRect(i * 22, 0, 1, H);
+  A.sky(c, W, H, { top: '#04040e', mid: '#141a3a', bottom: '#3a2a4a', stars: true, sun: '#fff4d8', moon: true, sunX: 200, sunY: 30, sunR: 12, sunGlow: '200,210,255', clouds: false }, t);
+  A.skyline(c, 0, { factor: 0, base: H, col: '#0e1024', amp: 140, win: 'rgba(255,210,120,.35)' });
+  c.strokeStyle = 'rgba(255,200,60,.35)'; c.lineWidth = 2; c.beginPath(); c.moveTo(232, H); c.lineTo(232, 20); c.lineTo(140, 20); c.moveTo(232, 30); c.lineTo(250, 30); c.stroke(); for (let y = 30; y < H; y += 14) { c.beginPath(); c.moveTo(228, y); c.lineTo(236, y + 14); c.moveTo(236, y); c.lineTo(228, y + 14); c.stroke(); } c.lineWidth = 1;
   // ladders
-  for (const L of LAD) { const top = fy(L[2], L[0]), bot = fy(L[1], L[0]); c.fillStyle = '#46d0ff'; c.fillRect(L[0] - 5, top, 2, bot - top); c.fillRect(L[0] + 3, top, 2, bot - top); for (let y = top + 3; y < bot; y += 6) { if (L[3] && y > top + 10 && y < bot - 10) continue; c.fillRect(L[0] - 5, y, 10, 1.5); } }
+  for (const L of LAD) { const top = fy(L[2], L[0]), bot = fy(L[1], L[0]); A.part(c, L[0] - 5, top, 2, bot - top, '#46d0ff'); A.part(c, L[0] + 3, top, 2, bot - top, '#46d0ff'); for (let y = top + 3; y < bot; y += 6) { if (L[3] && y > top + 10 && y < bot - 10) continue; c.fillStyle = A.INK; c.fillRect(L[0] - 5, y - 0.5, 10, 2.5); c.fillStyle = '#8ae8ff'; c.fillRect(L[0] - 5, y, 10, 1.5); } }
   // girders
-  for (const g of FL) { c.save(); c.translate(g[0], g[1]); const len = Math.hypot(g[2] - g[0], g[3] - g[1]); c.rotate(Math.atan2(g[3] - g[1], g[2] - g[0])); c.fillStyle = '#e63946'; c.fillRect(0, 0, len, 7); c.fillStyle = '#0a0a14'; for (let x = 2; x < len; x += 8) { c.beginPath(); c.moveTo(x, 1.5); c.lineTo(x + 3, 5.5); c.lineTo(x + 6, 1.5); c.fill(); } c.restore(); }
+  for (const g of FL) { c.save(); c.translate(g[0], g[1]); const len = Math.hypot(g[2] - g[0], g[3] - g[1]); c.rotate(Math.atan2(g[3] - g[1], g[2] - g[0])); c.fillStyle = 'rgba(0,0,0,.4)'; c.fillRect(2, 7, len, 3); c.fillStyle = A.INK; c.fillRect(-0.7, -0.7, len + 1.4, 8.4); const gg = c.createLinearGradient(0, 0, 0, 7); gg.addColorStop(0, '#ff8a8a'); gg.addColorStop(0.3, '#e63946'); gg.addColorStop(1, '#8a1a24'); c.fillStyle = gg; c.fillRect(0, 0, len, 7); c.fillStyle = '#3a0a12'; for (let x = 2; x < len; x += 8) { c.beginPath(); c.moveTo(x, 1.5); c.lineTo(x + 3, 5.5); c.lineTo(x + 6, 1.5); c.fill(); } c.fillStyle = '#ffd0d0'; for (let x = 4; x < len; x += 16) { c.fillRect(x, 0.8, 1.2, 1.2); } c.restore(); }
   // oil drum at bottom left
-  c.fillStyle = '#2a6fdb'; c.fillRect(4, 292, 14, 16); c.fillStyle = '#fff'; c.fillRect(4, 298, 14, 2); if (fires && fires.length) { c.fillStyle = Math.floor(t / 80) % 2 ? '#ff5a1a' : '#ffd23f'; c.fillRect(6, 286, 10, 6); }
+  A.part(c, 4, 292, 14, 16, '#2a6fdb'); c.fillStyle = '#fff'; c.fillRect(4, 298, 14, 2); if (fires && fires.length) { A.glow(c, 11, 286, 22, '255,140,40', 0.5); c.fillStyle = '#ff5a1a'; c.beginPath(); c.moveTo(5, 292); c.quadraticCurveTo(11, 276 + Math.sin(t / 60) * 3, 17, 292); c.fill(); c.fillStyle = '#ffd23f'; c.beginPath(); c.moveTo(8, 292); c.quadraticCurveTo(11, 283 + Math.sin(t / 45) * 2, 14, 292); c.fill(); }
   // wrecker bot + stacked barrels
   c.fillStyle = '#8a5a2a'; for (let i = 0; i < 4; i++) c.fillRect(2 + (i % 2) * 9, 60 + Math.floor(i / 2) * 11, 8, 10);
   const arm = throwT < 0.3 ? -6 : 0; c.fillStyle = '#7a7a8a'; c.fillRect(22, 56, 22, 24); c.fillStyle = '#4a4a5a'; c.fillRect(26, 46, 14, 11); c.fillStyle = '#ff3b5c'; c.fillRect(28, 49, 3, 3); c.fillRect(35, 49, 3, 3); c.fillStyle = '#7a7a8a'; c.fillRect(44, 58 + arm, 8, 5); c.fillRect(16, 58 - arm, 8, 5); c.fillStyle = '#ffd23f'; c.fillRect(22, 66, 22, 2);
@@ -124,6 +126,7 @@ function draw(c, t) {
   if (winT > 0) K.text(c, 'PUPPY SAVED!', W / 2, 150, 16, '#ffd23f');
 }
 title();
+{ const _draw = draw; draw = function (c, t) { _draw(c, t); A.vignette(c, W, H, 0.35); }; }
 K.run(update, draw);
 </script>
 </body>

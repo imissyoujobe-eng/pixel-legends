@@ -7,6 +7,7 @@
 </head>
 <body>
 <script src="../lib/kit.js"></script>
+<script src="../lib/art.js"></script>
 <script>
 // Powder Peak: carve down three mountain runs, launch off kickers, spin and grab for points, and slide the rails. Beat the clock.
 K.theme({ bg: '#0b1d33', ink: '#f2f8ff', accent: '#5fd6ff', accentInk: '#00202e' });
@@ -128,8 +129,11 @@ function draw(c, t) {
   if (!me) { c.fillStyle = '#dbe8f5'; for (let i = 0; i < 10; i++) c.fillRect(0, i * 36, W, 14); return; }
   const cy = me.y - RY;
   // snow shading
-  c.fillStyle = '#e4eef9'; for (let i = -1; i < 12; i++) { const y = i * 40 - (cy % 40); c.beginPath(); c.ellipse(60 + (Math.floor((cy + y) / 40) % 3) * 50, y, 70, 9, 0, 0, 7); c.fill(); }
+  for (let i = -1; i < 14; i++) { const y = i * 34 - (cy % 34), id = Math.floor((cy + y) / 34); c.fillStyle = '#dde9f6'; c.beginPath(); c.ellipse(40 + (((id * 37) % 5 + 5) % 5) * 40, y, 60, 7, 0, 0, 7); c.fill(); c.fillStyle = 'rgba(255,255,255,.9)'; c.beginPath(); c.ellipse(40 + (((id * 37) % 5 + 5) % 5) * 40 - 6, y - 3, 40, 3, 0, 0, 7); c.fill(); }
+  for (let k = 0; k < 60; k++) { const y = ((A.hash(k, 1) * 600 - cy) % 600 + 600) % 600 - 50; c.fillStyle = 'rgba(160,190,225,.5)'; c.fillRect(A.hash(k, 2) * W, y, 2, 1); c.fillStyle = 'rgba(255,255,255,.95)'; c.fillRect(A.hash(k, 3) * W, y + 7, 1.5, 1.5); }
   c.fillStyle = '#c7d6e6'; c.fillRect(0, 0, 8, H); c.fillRect(W - 8, 0, 8, H);
+  // pine trees along both sides of the run
+  for (let i = -2; i < H / 26 + 2; i++) { const id = Math.floor(cy / 26) + i, y = id * 26 - cy; [[-4 + A.hash(id, 1) * 10, 0], [W - 6 - A.hash(id, 2) * 10, 1]].forEach(([x, sd]) => { const s2 = 0.8 + A.hash(id, sd + 4) * 0.5; c.fillStyle = 'rgba(80,110,160,.25)'; c.beginPath(); c.ellipse(x + 4, y + 2, 9 * s2, 3, 0, 0, 7); c.fill(); c.fillStyle = A.INK; c.beginPath(); c.moveTo(x, y - 22 * s2); c.lineTo(x - 9 * s2, y); c.lineTo(x + 9 * s2, y); c.fill(); c.fillStyle = '#2a5a4a'; c.beginPath(); c.moveTo(x, y - 21 * s2); c.lineTo(x - 8 * s2, y - 1); c.lineTo(x + 8 * s2, y - 1); c.fill(); c.fillStyle = '#fff'; c.beginPath(); c.moveTo(x, y - 21 * s2); c.lineTo(x - 4 * s2, y - 13 * s2); c.lineTo(x + 3 * s2, y - 14 * s2); c.fill(); c.fillRect(x - 6 * s2, y - 6 * s2, 6 * s2, 1.5); }); }
   c.fillStyle = '#ff7a1a'; for (let y = -(cy % 24); y < H; y += 24) { c.fillRect(6, y, 3, 12); c.fillRect(W - 9, y, 3, 12); }
   // finish line
   const fy = RUNS[run].len - cy; if (fy < H + 10) { for (let i = 0; i < 24; i++) { c.fillStyle = i % 2 ? '#111' : '#fff'; c.fillRect(i * 10, fy, 10, 6); } K.text(c, 'FINISH', W / 2, fy - 10, 12, '#e63946'); }
@@ -166,6 +170,7 @@ function draw(c, t) {
   if (msgT > 0) K.text(c, msg, W / 2, 60, 13, '#0b4a8a');
 }
 title();
+{ const _draw = draw; draw = function (c, t) { _draw(c, t); A.ambient(c, W, H, t, 'snow', 26); A.vignette(c, W, H, 0.2); }; }
 K.run(update, draw);
 </script>
 </body>

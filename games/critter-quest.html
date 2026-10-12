@@ -8,6 +8,7 @@
 <body>
 <script src="../lib/kit.js"></script>
 <script src="../lib/td.js"></script>
+<script src="../lib/art.js"></script>
 <script>
 // Critter Quest: pick a partner critter, catch wild ones in the tall grass, and beat the three trainers to become champion.
 K.theme({ bg: '#101a10', ink: '#fffaf0', accent: '#ffd23f', accentInk: '#2a1d00' });
@@ -243,6 +244,17 @@ function draw(c, t) {
   if (talk && talk.lines.length) D.dialog(c, talk.lines[0], VW, VH, '');
 }
 title();
+function tall(c, x, y, tx, t) { for (let k = 0; k < 4; k++) { const bx = x + 2 + k * 4, sw = Math.sin(t / 400 + tx + k) * 1.2; c.fillStyle = A.INK; c.beginPath(); c.moveTo(bx - 1.5, y + 15); c.lineTo(bx + sw, y + 3 + (k % 2) * 3); c.lineTo(bx + 2.5, y + 15); c.fill(); c.fillStyle = k % 2 ? '#4aa83a' : '#6ac84a'; c.beginPath(); c.moveTo(bx - 0.8, y + 15); c.lineTo(bx + sw + 0.3, y + 4.5 + (k % 2) * 3); c.lineTo(bx + 1.8, y + 15); c.fill(); } }
+{ const _dt = drawTile; drawTile = function (c, ch, x, y, tx, ty, t) {
+    if (false) return _dt(c, ch, x, y, tx, ty, t);
+    const land = (a, b) => { const r = w.g[b]; const q = r ? r[a] : undefined; return q !== undefined && q !== 'W' && q !== '~'; };
+    if (ch === '.') { A.grassTD(c, x, y, tx, ty); return; }
+    if (ch === ',') { A.grassTD(c, x, y, tx, ty, { base: '#5aa83a', hi: '#7ac85a', lo: '#3a8a2a' }); tall(c, x, y, tx, t); return; }
+    if (ch === 'T') { A.grassTD(c, x, y, tx, ty); A.treeTD(c, x, y, tx, ty); return; }
+    if (ch === 'W') { A.waterTD(c, x, y, tx, ty, t, land); return; }
+    return _dt(c, ch, x, y, tx, ty, t);
+  }; }
+{ const _draw = draw; draw = function (c, t) { _draw(c, t); if (w && state === 'play') { A.ambient(c, VW, VH, t, (false) ? 'dust' : 'leaf', 10); A.vignette(c, VW, VH, (false) ? 0.5 : 0.25); } }; }
 K.run(update, draw);
 </script>
 </body>

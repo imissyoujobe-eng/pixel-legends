@@ -1,6 +1,6 @@
 // The game list for the Pixel Legends menu.
 // To add a game: put its file in games/ and add one line below.
-window.ARCADE_TOTAL = 31;
+window.ARCADE_TOTAL = 34;
 window.ARCADE_GAMES = [
   { id: 'pipe-hopper', name: 'Pipe Hopper', genre: 'Platform', tag: 'Run, jump and stomp to the flag' },
   { id: 'hollow-crown', name: 'Hollow Crown', genre: 'Adventure', tag: 'Sword quest for the lost crown' },
@@ -32,5 +32,8 @@ window.ARCADE_GAMES = [
   { id: 'street-brawl', name: "Street Brawl", genre: 'Action', tag: "Fists, kicks and a baseball bat" },
   { id: 'axe-and-sorcery', name: "Axe & Sorcery", genre: 'Action', tag: "Pick a hero, hoard the magic" },
   { id: 'fist-city', name: "Fist City", genre: 'Action', tag: "The mayor cleans up the streets" },
-  { id: 'commando-sights', name: "Commando Sights", genre: 'Action', tag: "Crosshair shooting gallery" }
+  { id: 'commando-sights', name: "Commando Sights", genre: 'Action', tag: "Crosshair shooting gallery" },
+  { id: 'cube-pop', name: "Cube Pop", genre: 'Puzzle', tag: "Pop color groups, build rockets" },
+  { id: 'fling-frenzy', name: "Fling Frenzy", genre: 'Puzzle', tag: "Slingshot Puffs at wobbly forts" },
+  { id: 'juice-slash', name: "Juice Slash", genre: 'Action', tag: "Swipe to slice, dodge the bombs" }
 ];

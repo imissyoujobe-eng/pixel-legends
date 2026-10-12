@@ -16,6 +16,7 @@ K.hud(['energy', 'missiles', 'items']);
 K.pad({ dpad: '4', buttons: [{ id: 'x', label: 'MSL' }, { id: 'b', label: 'FIRE' }, { id: 'a', label: 'JUMP' }] });
 </script>
 <script src="../lib/plat.js"></script>
+<script src="../lib/art.js"></script>
 <script>
 const WORLD = ["############################################################", "#..................##..................##..................#", "#..................##..................##..................#", "#..................##..................##..................#", "#..................##..................##..................#", "#.........f........##..................##..................#", "#..................##..................##..................#", "#..................##..................##.........m........#", "#..................##..............######........===.......#", "#...r..............##..............######..................#", "#..====............##..............######..................#", "#..................DD..............######....===...........#", "#.......c..........DD....P..S......######.............f....#", "#..................DD......................................#", "###########################...##############################", "###########################...##############################", "#..................##..................##..................#", "#..................##.....=====........##..................#", "#..................##..................##..................#", "#..................##..................##..................#", "#..................##..====............##..................#", "#..................##..................##..................#", "#....e.............##..................##..................#", "#...===............##.......====.......##..................#", "#..................##..................##...........##.....#", "#..................##.....f............##...........##.....#", "#........===.......DD...........===....RR...........##.....#", "#...c..............DD.........c........RR....f......##.....#", "#..................DD.S................RR...........##..S..#", "#####...###############################################...##", "#####...###############################################...##", "#..................##..................##..................#", "#....====..........##..................##..................#", "#..................##..................##..................#", "#..................##..................##..................#", "#....====..........##..................##..................#", "#..................##..................##..................#", "#..................##.........e........##..................#", "#..................##........===.......##......====........#", "#..====............##..................##..................#", "#..................##..................##..B...............#", "#..................DD...====.....===...##..===.......===...#", "#.......c..........DD.....f............##..................#", "#..............j...DD...AAAAA..........##..................#", "############################################################"];
 const WT = WORLD[0].length, HT = WORLD.length;
@@ -111,12 +112,17 @@ function draw(c, t) {
   c.fillStyle = '#05070f'; c.fillRect(0, 0, VW, VH);
   if (!w) return;
   const ox = room.c * RW * T, oy = room.r * RH * T;
-  // background panels
-  c.fillStyle = '#0c1424'; for (let x = 0; x < VW; x += 40) c.fillRect(x + 4, 0, 30, VH); c.fillStyle = '#101c34'; for (let y = 20; y < VH; y += 50) c.fillRect(0, y, VW, 3);
+  // background: deep cave wall with glowing crystals and pipes
+  const bg = c.createLinearGradient(0, 0, 0, VH); bg.addColorStop(0, '#0a1020'); bg.addColorStop(1, '#141a34'); c.fillStyle = bg; c.fillRect(0, 0, VW, VH);
+  for (let i = 0; i < 26; i++) { const hx = A.hash(i, room.r * 7 + room.c, 1) * VW, hy = A.hash(i, room.r + room.c * 5, 2) * VH, r = 10 + A.hash(i, 3) * 26; c.fillStyle = 'rgba(40,60,110,' + (0.15 + A.hash(i, 4) * 0.2) + ')'; c.beginPath(); c.ellipse(hx, hy, r, r * 0.6, A.hash(i, 5) * 3, 0, 7); c.fill(); }
+  for (let i = 0; i < 6; i++) { const hx = A.hash(i, room.c + 11, 6) * VW, hy = A.hash(i, room.r + 13, 7) * VH, col = ['120,200,255', '200,120,255', '120,255,200'][i % 3]; A.glow(c, hx, hy, 30, col, 0.18); c.fillStyle = 'rgba(' + col + ',.7)'; c.beginPath(); c.moveTo(hx, hy - 7); c.lineTo(hx + 3, hy); c.lineTo(hx, hy + 4); c.lineTo(hx - 3, hy); c.fill(); }
+  c.fillStyle = '#1a2440'; for (let y = 40; y < VH; y += 96) { c.fillRect(0, y, VW, 5); c.fillStyle = 'rgba(255,255,255,.08)'; c.fillRect(0, y, VW, 1); c.fillStyle = '#1a2440'; }
+  const CAVE = Object.assign({}, A.PAL.stone, { base: '#34446a', hi: '#4c6292', lo: '#1e2a46', mortar: '#0c1222' });
+  const solidAt = (gx, gy) => { const yy = room.r * RH + gy, xx = room.c * RW + gx; if (yy < 0 || yy >= w.rows || xx < 0 || xx >= w.cols) return true; return w.g[yy][xx] === '#'; };
   for (let y = 0; y < RH; y++) for (let x = 0; x < RW; x++) {
     const ch = w.g[room.r * RH + y][room.c * RW + x], X = x * T, Y = y * T;
-    if (ch === '#') { c.fillStyle = '#2a3a5a'; c.fillRect(X, Y, T, T); c.fillStyle = '#3a5080'; c.fillRect(X, Y, T, 2); c.fillStyle = '#1a2440'; c.fillRect(X, Y + 14, T, 2); if ((x + y) % 4 === 0) { c.fillStyle = '#4a6aa0'; c.fillRect(X + 6, Y + 6, 4, 4); } }
-    else if (ch === '=') { c.fillStyle = '#5a7aa8'; c.fillRect(X, Y, T, 4); c.fillStyle = '#2a3a5a'; c.fillRect(X + 2, Y + 4, 2, 4); c.fillRect(X + 12, Y + 4, 2, 4); }
+    if (ch === '#') A.tile(c, 'dc', X, Y, A.edges(solidAt, x, y), room.c * RW + x, room.r * RH + y, CAVE);
+    else if (ch === '=') A.ledge(c, X, Y, T, A.PAL.metal);
     else if (ch === 'D' || ch === 'R') { c.fillStyle = ch === 'D' ? '#2a8aff' : '#ff8a1f'; c.fillRect(X + 4, Y, 8, T); c.fillStyle = 'rgba(255,255,255,.5)'; c.fillRect(X + 6, Y + 2, 2, T - 4); }
     else if (ch === 'A') { c.fillStyle = Math.floor(t / 200 + x) % 2 ? '#7cff6b' : '#4ad04a'; c.fillRect(X, Y + 6, T, 10); }
     else if (ch === 'S') { c.fillStyle = '#7cffda'; c.globalAlpha = 0.5 + Math.sin(t / 200) * 0.3; c.fillRect(X - 2, Y + 12, T + 4, 4); c.globalAlpha = 0.2; c.fillRect(X, Y - 20, T, 32); c.globalAlpha = 1; }
@@ -146,6 +152,7 @@ function draw(c, t) {
 }
 function wrap(c, txt, x, y, mw) { c.font = '9px Rubik, sans-serif'; c.textAlign = 'center'; c.fillStyle = '#fff'; let line = ''; for (const wd of txt.split(' ')) { const tst = line ? line + ' ' + wd : wd; if (c.measureText(tst).width > mw) { c.fillText(line, x, y); y += 12; line = wd; } else line = tst; } c.fillText(line, x, y); }
 title();
+{ const _draw = draw; draw = function (c, t) { _draw(c, t); if (w) { A.ambient(c, VW, VH, t, 'dust', 14); A.vignette(c, VW, VH, 0.45); } }; }
 K.run(update, draw);
 </script>
 </body>

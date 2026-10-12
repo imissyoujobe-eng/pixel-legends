@@ -7,24 +7,27 @@
 </head>
 <body>
 <script src="../lib/kit.js"></script>
+<script src="../lib/art.js"></script>
 <script src="../lib/brawl.js"></script>
 <script>
 // Axe & Sorcery: a fantasy brawler. Pick a hero, smack the little potion thieves for magic, and spend every potion at once on a big spell.
 const ZMIN = B.ZMIN;
 function land(sky, hill, floor, deco) {
+  const pal = Object.assign({}, A.PAL.earth, { base: floor, hi: A.shade(floor, 0.18), lo: A.shade(floor, -0.25), mortar: A.shade(floor, -0.5), grass: deco === tree ? '#4a9a3a' : null, grassHi: '#7ac85a', grassLo: '#2a6a22' });
+  const night = sky[0] === '#1a0a0a' || sky[0] === '#3a2a5a';
   return function (c, cx, t) {
-    const g = c.createLinearGradient(0, 0, 0, ZMIN); g.addColorStop(0, sky[0]); g.addColorStop(1, sky[1]); c.fillStyle = g; c.fillRect(0, 0, 320, ZMIN);
-    c.fillStyle = hill; for (let i = -1; i < 6; i++) { const x = i * 90 - (cx * 0.3 % 90); c.beginPath(); c.moveTo(x - 20, ZMIN); c.lineTo(x + 30, 60 + (i % 2) * 20); c.lineTo(x + 100, ZMIN); c.fill(); }
+    A.sky(c, 320, ZMIN, { top: sky[0], mid: sky[1], bottom: A.shade(sky[1], 0.25), stars: night, sun: night ? '#fff0e0' : '#fff6c0', moon: night, sunX: 250, sunY: 30, sunR: 12 }, t * 1000);
+    A.ridge(c, cx, { factor: 0.15, base: ZMIN - 30, amp: 50, col: A.shade(hill, 0.15), edge: 'rgba(0,0,0,.2)', seed: 2, fog: 'rgba(255,255,255,.15)' });
+    A.ridge(c, cx, { factor: 0.35, base: ZMIN - 10, amp: 40, col: hill, edge: 'rgba(0,0,0,.35)', seed: 6 });
     for (let i = -1; i < 7; i++) { const x = i * 60 - (cx * 0.7 % 60); deco(c, x, t); }
-    c.fillStyle = floor; c.fillRect(0, ZMIN - 8, 320, 240); c.fillStyle = 'rgba(0,0,0,.15)'; for (let i = 0; i < 24; i++) c.fillRect(((i * 47) - cx) % 340 + (((i * 47) - cx) % 340 < 0 ? 340 : 0) - 10, ZMIN + (i * 13) % 70, 10, 2);
+    A.floor(c, cx, ZMIN - 8, 240, 320, pal);
   };
-}
-const tree = (c, x) => { c.fillStyle = '#3a2a1a'; c.fillRect(x + 20, 100, 6, 50); c.fillStyle = '#2a5a2a'; c.beginPath(); c.arc(x + 23, 96, 16, 0, 7); c.fill(); };
-const pillar = (c, x) => { c.fillStyle = '#6a6a7a'; c.fillRect(x + 18, 70, 12, 80); c.fillStyle = '#7a7a8a'; c.fillRect(x + 14, 66, 20, 6); };
-const bones = (c, x, t) => { c.fillStyle = '#4a2a2a'; c.fillRect(x + 10, 110, 30, 40); c.fillStyle = Math.sin(t * 3 + x) > 0 ? '#ff8a2a' : '#ffb04a'; c.fillRect(x + 22, 100, 6, 10); };
+}const tree = (c, x) => { A.part(c, x + 20, 96, 6, 54, '#5a3a1a'); c.fillStyle = A.INK; c.beginPath(); c.arc(x + 23, 92, 18, 0, 7); c.fill(); A.ball(c, x + 23, 92, 17, '#3a7a3a'); A.ball(c, x + 14, 100, 10, '#2e6a2e'); A.ball(c, x + 32, 100, 10, '#2e6a2e'); };
+const pillar = (c, x) => { A.part(c, x + 18, 70, 12, 80, '#8a8a9a'); c.fillStyle = 'rgba(0,0,0,.2)'; for (let k = 0; k < 3; k++) c.fillRect(x + 20 + k * 4, 72, 1, 76); A.part(c, x + 14, 64, 20, 7, '#9a9aaa'); A.part(c, x + 15, 146, 18, 5, '#7a7a8a'); c.fillStyle = '#4a7a3a'; c.fillRect(x + 18, 90, 3, 14); c.fillRect(x + 26, 110, 3, 10); };
+const bones = (c, x, t) => { A.part(c, x + 10, 110, 30, 40, '#4a2a2a'); c.fillStyle = 'rgba(0,0,0,.3)'; c.fillRect(x + 12, 118, 26, 1); c.fillRect(x + 12, 130, 26, 1); A.torch(c, x + 25, 104, t * 1000); };
 const look = (o) => Object.assign({ skin: '#e0b088', belt: '#5a3a1a', boots: '#4a2a1a' }, o);
 B.start({
-  title: 'AXE & SORCERY', key: 'axesorcery', button: 'Choose Hero', specialLabel: 'MAGIC', showPotions: true,
+  title: 'AXE & SORCERY', key: 'axesorcery', button: 'Choose Hero', specialLabel: 'MAGIC', showPotions: true, ambient: 'leaf',
   theme: { bg: '#100a14', ink: '#fff6e0', accent: '#ffb02e', accentInk: '#2a1600' },
   text: 'Pick a hero, then cut through the Bone Lord\'s army. HIT three times to combo, JUMP + HIT to leap and strike. Kick the little blue thieves to make them drop potions ⚗. MAGIC uses ALL your potions at once: more potions, bigger spell. Keyboard: Z hit, X jump, C magic.',
   hero: { hp: 60, spd: 66, dmg: 1.2, reach: 22 },

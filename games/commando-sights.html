@@ -7,6 +7,7 @@
 </head>
 <body>
 <script src="../lib/kit.js"></script>
+<script src="../lib/art.js"></script>
 <script>
 // Commando Sights: a first-person gallery shooter. Move the crosshair, pick off soldiers and vehicles, rescue hostages and save your rockets for the big stuff.
 K.theme({ bg: '#1a1408', ink: '#fff6e0', accent: '#ffb24a', accentInk: '#2a1600' });
@@ -74,10 +75,13 @@ function drawSol(c, f, host) { const s = f.d, x = f.x, y = f.y, step = Math.sin(
   c.fillStyle = host ? '#ddd' : '#4a5a2a'; c.fillRect(x - 4 * s, y - 20 * s, 8 * s, 12 * s); c.fillStyle = host ? '#bbb' : '#2a3a1a'; c.fillRect(x - 4 * s + step, y - 8 * s, 3 * s, 8 * s); c.fillRect(x + 1 * s - step, y - 8 * s, 3 * s, 8 * s);
   c.fillStyle = '#e0b090'; c.beginPath(); c.arc(x, y - 23 * s, 3.5 * s, 0, 7); c.fill(); if (!host) { c.fillStyle = '#3a4a1a'; c.fillRect(x - 4 * s, y - 27 * s, 8 * s, 3 * s); c.fillStyle = '#222'; c.fillRect(x + (f.vx > 0 ? 2 : -9) * s, y - 17 * s, 7 * s, 2 * s); } }
 function draw(c, t) {
-  const g = c.createLinearGradient(0, 0, 0, HY); g.addColorStop(0, '#e89a50'); g.addColorStop(1, '#f8d090'); c.fillStyle = g; c.fillRect(0, 0, W, HY);
-  c.fillStyle = '#7a6a4a'; for (let i = 0; i < 6; i++) { const x = (i * 70 - scroll) % 420 - 50; c.beginPath(); c.moveTo(x, HY); c.lineTo(x + 40, HY - 40 - (i % 3) * 10); c.lineTo(x + 90, HY); c.fill(); }
-  c.fillStyle = '#5a4a2a'; c.fillRect(0, HY, W, H - HY); c.fillStyle = '#6a5a3a'; for (let i = 0; i < 8; i++) c.fillRect((i * 53) % W, HY + 10 + i * 12, 30, 3);
-  c.fillStyle = '#3a3020'; c.fillRect(20, HY - 18, 50, 18); c.fillRect(230, HY - 24, 60, 24); c.fillStyle = '#222'; c.fillRect(35, HY - 12, 8, 8); c.fillRect(250, HY - 16, 10, 10);
+  A.sky(c, W, HY, { top: '#4a3a7a', mid: '#e8885a', bottom: '#ffd890', sun: '#fff0b0', sunX: 230, sunY: 70, sunR: 18, cloud: 'rgba(255,220,200,.6)' }, t);
+  A.ridge(c, scroll * 20, { factor: 1, base: HY, amp: 45, col: '#8a5a4a', bands: ['rgba(255,200,150,.2)', 'rgba(100,40,30,.2)'], mesa: true, edge: 'rgba(0,0,0,.25)', seed: 2 });
+  A.ridge(c, scroll * 40, { factor: 1, base: HY + 6, amp: 18, col: '#6a4a32', edge: 'rgba(0,0,0,.35)', seed: 6 });
+  const gg = c.createLinearGradient(0, HY, 0, H); gg.addColorStop(0, '#8a6a3a'); gg.addColorStop(1, '#5a4024'); c.fillStyle = gg; c.fillRect(0, HY, W, H - HY);
+  for (let k = 0; k < 90; k++) { c.fillStyle = k % 3 ? 'rgba(60,40,20,.35)' : 'rgba(255,230,180,.25)'; c.fillRect(A.hash(k, 1) * W, HY + 4 + A.hash(k, 2) * (H - HY - 4), 2 + (k % 3), 1.5); }
+  for (let k = 0; k < 8; k++) { const x = A.hash(k, 4) * W, y = HY + 20 + A.hash(k, 5) * 70; c.fillStyle = '#6a7a3a'; c.fillRect(x, y, 1.5, -5); c.fillRect(x + 2, y, 1.5, -7); c.fillRect(x + 4, y, 1.5, -4); }
+  [[20, 50], [230, 60]].forEach(([bx, bw]) => { A.part(c, bx, HY - 20, bw, 20, '#5a4a32'); c.fillStyle = '#1a1208'; c.fillRect(bx + bw / 2 - 6, HY - 14, 12, 6); for (let k = 0; k < bw; k += 9) A.part(c, bx + k - 2, HY - 4, 10, 5, '#a8946a'); for (let k = 4; k < bw - 4; k += 9) A.part(c, bx + k - 2, HY - 8, 10, 5, '#b8a47a'); });
   foes.slice().sort((a, b) => a.d - b.d).forEach(f => {
     if (f.k === 'sol' || f.k === 'host') drawSol(c, f, f.k === 'host');
     else if (f.k === 'jeep') { const s = f.d; c.fillStyle = '#5a6a3a'; c.fillRect(f.x - 26 * s, f.y - 18 * s, 52 * s, 14 * s); c.fillStyle = '#222'; c.beginPath(); c.arc(f.x - 15 * s, f.y - 3 * s, 5 * s, 0, 7); c.arc(f.x + 15 * s, f.y - 3 * s, 5 * s, 0, 7); c.fill(); c.fillStyle = '#333'; c.fillRect(f.x - 3, f.y - 30 * s, 4, 12 * s); }
@@ -92,6 +96,7 @@ function draw(c, t) {
   if (state === 'play') { c.strokeStyle = '#ff2a2a'; c.lineWidth = 1.5; c.beginPath(); c.arc(cx, cy, 9, 0, 7); c.moveTo(cx - 14, cy); c.lineTo(cx - 4, cy); c.moveTo(cx + 4, cy); c.lineTo(cx + 14, cy); c.moveTo(cx, cy - 14); c.lineTo(cx, cy - 4); c.moveTo(cx, cy + 4); c.lineTo(cx, cy + 14); c.stroke();
     c.fillStyle = 'rgba(0,0,0,.4)'; c.fillRect(6, H - 12, 120, 6); c.fillStyle = '#ffb24a'; c.fillRect(6, H - 12, 120 * (kills / need), 6); }
 }
+{ const _draw = draw; draw = function (c, t) { _draw(c, t); A.vignette(c, W, H, 0.3); }; }
 start(); state = 'title'; title(); K.run(update, draw);
 </script>
 </body>

@@ -7,6 +7,7 @@
 </head>
 <body>
 <script src="../lib/kit.js"></script>
+<script src="../lib/art.js"></script>
 <script>
 // Diamond Dash: three innings of arcade baseball. Pitch to the computer's lineup, then step up and swing for the fences.
 K.theme({ bg: '#0d2a18', ink: '#f6fff2', accent: '#ffd23f', accentInk: '#2a1d00' });
@@ -169,9 +170,11 @@ function update(dt) {
 function drawPitchView(c, t) {
   c.fillStyle = '#2f8a3a'; c.fillRect(0, 0, W, H);
   // outfield wall and crowd
-  c.fillStyle = '#1d4a6b'; c.fillRect(0, 0, W, 70); for (let i = 0; i < 60; i++) { c.fillStyle = ['#ffd23f', '#fff', '#ff6b6b', '#7ee0ff'][i % 4]; c.fillRect((i * 37) % W, 8 + (i * 13) % 50, 3, 3); }
+  const sg = c.createLinearGradient(0, 0, 0, 70); sg.addColorStop(0, '#0a1a3a'); sg.addColorStop(1, '#1d4a6b'); c.fillStyle = sg; c.fillRect(0, 0, W, 70);
+  for (let row = 0; row < 4; row++) for (let i = 0; i < 22; i++) { const x = i * 11 + (row % 2) * 5, y = 12 + row * 13 + Math.sin(t / 260 + i + row) * 1.2; c.fillStyle = ['#ffd23f', '#f4f4f4', '#ff6b6b', '#7ee0ff', '#8aff8a'][(i * 3 + row) % 5]; c.fillRect(x - 4, y + 3, 8, 7); c.fillStyle = ['#f0c8a0', '#c8905a', '#8a5a3a'][(i + row) % 3]; c.beginPath(); c.arc(x, y, 3.2, 0, 7); c.fill(); }
+  A.glow(c, 30, 0, 80, '255,250,220', 0.25); A.glow(c, W - 30, 0, 80, '255,250,220', 0.25);
   c.fillStyle = '#145a2a'; c.fillRect(0, 70, W, 14); c.fillStyle = '#ffd23f'; c.fillRect(0, 84, W, 2);
-  c.fillStyle = '#38a046'; for (let y = 86; y < H; y += 20) c.fillRect(0, y, W, 10);
+  c.fillStyle = '#38a046'; for (let y = 86; y < H; y += 20) c.fillRect(0, y, W, 10); for (let k = 0; k < 120; k++) { c.fillStyle = k % 2 ? 'rgba(20,80,30,.3)' : 'rgba(140,220,120,.25)'; c.fillRect(A.hash(k, 1) * W, 86 + A.hash(k, 2) * (H - 86), 1, 2); }
   // infield dirt
   c.fillStyle = '#c98a4a'; c.beginPath(); c.moveTo(120, 112); c.lineTo(214, 230); c.lineTo(120, 330); c.lineTo(26, 230); c.closePath(); c.fill();
   c.fillStyle = '#3f9a44'; c.beginPath(); c.moveTo(120, 150); c.lineTo(182, 226); c.lineTo(120, 292); c.lineTo(58, 226); c.closePath(); c.fill();
@@ -232,6 +235,7 @@ function draw(c, t) {
   if (msgT > 0 && mode !== 'field') K.text(c, msg, W / 2, 200, 14, '#ffd23f');
 }
 title();
+{ const _draw = draw; draw = function (c, t) { _draw(c, t); A.vignette(c, W, H, 0.25); }; }
 K.run(update, draw);
 </script>
 </body>

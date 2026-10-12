@@ -1,5 +1,5 @@
 // Offline cache for Pixel Legends. Bump VERSION whenever you add or change a game.
-const VERSION = "legends-v5";
+const VERSION = "legends-v11";
 const FILES = [
  "./",
  "./games.js",
@@ -10,14 +10,17 @@ const FILES = [
  "./games/cloud-castle.html",
  "./games/commando-sights.html",
  "./games/critter-quest.html",
+ "./games/cube-pop.html",
  "./games/deep-core.html",
  "./games/diamond-dash.html",
  "./games/door-runner.html",
  "./games/fairway-nine.html",
  "./games/fist-city.html",
+ "./games/fling-frenzy.html",
  "./games/girder-gauntlet.html",
  "./games/hollow-crown.html",
  "./games/hyper-rail.html",
+ "./games/juice-slash.html",
  "./games/jungle-fire.html",
  "./games/kart-clash.html",
  "./games/kickflip-city.html",
@@ -38,8 +41,10 @@ const FILES = [
  "./icons/icon-512.png",
  "./icons/maskable-512.png",
  "./index.html",
+ "./lib/art.js",
  "./lib/brawl.js",
  "./lib/kit.js",
+ "./lib/planck.min.js",
  "./lib/plat.js",
  "./lib/racer.js",
  "./lib/td.js",

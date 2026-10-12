@@ -12,7 +12,7 @@
 <style>
 :root{
   --bg:#0d1626; --panel:#16223f; --line:#26365e; --ink:#f3f0ff; --muted:#b4acd8;
-  --shooter:#ff4f6d; --racing:#ffb02e; --sports:#2fd6a3; --arcade:#46a8ff; --puzzle:#c07bff;
+  --shooter:#ff4f6d; --racing:#ffb02e; --sports:#2fd6a3; --arcade:#46a8ff; --puzzle:#c07bff;--pop:#ff7ad8;
   --display:'Bungee',Impact,system-ui,sans-serif; --body:'Rubik',system-ui,sans-serif;
   color-scheme:dark;
 }
@@ -67,7 +67,7 @@ footer a{color:var(--muted)}
 <script src="games.js"></script>
 <script>
 (function(){
-  var COLORS={Platform:'var(--arcade)',Adventure:'var(--sports)',Racing:'var(--racing)',Action:'var(--shooter)',Sports:'var(--puzzle)'};
+  var COLORS={Platform:'var(--arcade)',Adventure:'var(--sports)',Racing:'var(--racing)',Action:'var(--shooter)',Sports:'var(--puzzle)',Puzzle:'var(--pop)'};
   var games=window.ARCADE_GAMES, total=window.ARCADE_TOTAL, filter='All';
   var grid=document.getElementById('grid'), chips=document.getElementById('chips');
   var genres=['All'].concat(Object.keys(COLORS).filter(function(g){return games.some(function(x){return x.genre===g})}));

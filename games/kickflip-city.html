@@ -7,6 +7,7 @@
 </head>
 <body>
 <script src="../lib/kit.js"></script>
+<script src="../lib/art.js"></script>
 <script>
 // Kickflip City: a 90-second street skate session. Ollie, flip, grab and grind across ledges and rails, chain combos and spell SKATE.
 K.theme({ bg: '#1a1430', ink: '#fff6ea', accent: '#ff4fa3', accentInk: '#fff' });
@@ -121,8 +122,12 @@ function draw(c, t) {
   // skyline
   for (const [par, col, hmax] of [[0.2, '#4a2a6a', 90], [0.45, '#2a1a40', 120]]) { c.fillStyle = col; for (let i = -1; i < 12; i++) { const bw = 40, wx = i * bw - ((cm * par) % bw), id = Math.floor((cm * par) / bw) + i, h = 40 + (Math.abs(Math.sin(id * 12.9)) * hmax); c.fillRect(wx, GY - 20 - h, bw - 4, h); if (par > 0.3) { c.fillStyle = '#ffd86b'; for (let y = GY - 20 - h + 8; y < GY - 30; y += 12) for (let x = 4; x < bw - 8; x += 10) if (Math.sin(id * 3 + x + y) > 0.3) c.fillRect(wx + x, y, 4, 5); c.fillStyle = col; } } }
   // sidewalk + street
-  c.fillStyle = '#8a8a96'; c.fillRect(0, GY, W, 8); c.fillStyle = '#6a6a76'; for (let x = -(cm % 30); x < W; x += 30) c.fillRect(x, GY, 1, 8);
-  c.fillStyle = '#2a2a33'; c.fillRect(0, GY + 8, W, H - GY - 8); c.fillStyle = '#ffd23f'; for (let x = -(cm % 40); x < W; x += 40) c.fillRect(x, GY + 24, 20, 2);
+  A.facades(c, cm, { factor: 0.8, base: GY, h: 70, w: 76, cols: ['#8a4a4a', '#6a5a7a', '#9a7a5a'], awn: ['#e84a6a', '#3a9ad8', '#f4c02a'], signs: ['#ff4ab0', '#4ae0ff', '#ffe04a'], lit: 0.55 });
+  c.fillStyle = A.INK; c.fillRect(0, GY - 1, W, 2); A.floor(c, cm, GY, GY + 8, W, Object.assign({}, A.PAL.stone, { base: '#9a9aa6', hi: '#bcbcc8', lo: '#6a6a76', mortar: '#3a3a44' }));
+  const rd = c.createLinearGradient(0, GY + 8, 0, H); rd.addColorStop(0, '#22222a'); rd.addColorStop(1, '#383844'); c.fillStyle = rd; c.fillRect(0, GY + 8, W, H - GY - 8); c.fillStyle = A.INK; c.fillRect(0, GY + 8, W, 1);
+  for (let k = 0; k < 50; k++) { c.fillStyle = 'rgba(255,255,255,.07)'; c.fillRect(((A.hash(k, 1) * 700 - cm) % 700 + 700) % 700 - 30, GY + 10 + A.hash(k, 2) * (H - GY - 12), 2, 1); }
+  c.fillStyle = '#ffd23f'; for (let x = -(cm % 40); x < W; x += 40) { c.fillRect(x, GY + 24, 20, 2.5); }
+  for (let x = -(cm * 0.8 % 160) + 60; x < W + 20; x += 160) { A.part(c, x, GY - 44, 2, 44, '#3a3a44'); A.part(c, x - 2, GY - 46, 12, 3, '#3a3a44'); A.glow(c, x + 8, GY - 42, 50, '255,220,140', 0.2); c.fillStyle = '#fff4c0'; c.fillRect(x + 5, GY - 43, 6, 2); }
   if (!obs) return;
   for (const o of obs) {
     const x = o.x - cm; if (x > W + 10 || x + o.w < -10) continue;
@@ -155,6 +160,7 @@ function draw(c, t) {
   K.text(c, 'SKATE'.split('').map((ch, i) => i < got ? ch : '_').join(' '), W - 40, 12, 9, '#ffd23f');
 }
 title();
+{ const _draw = draw; draw = function (c, t) { _draw(c, t); A.vignette(c, W, H, 0.3); }; }
 K.run(update, draw);
 </script>
 </body>

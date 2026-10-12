@@ -93,12 +93,42 @@ function lose() { state = 'over'; K.tune([392, 330, 262, 196], 0.18, { type: 'sa
 function win() { state = 'over'; const t = Math.floor(time); best = K.saveBest('agentzero', t, true); K.card({ title: 'MISSION COMPLETE', text: 'All three bases cleared in ' + Math.floor(t / 60) + 'm ' + t % 60 + 's with ' + kills + ' guards down.', best: 'BEST TIME ' + Math.floor(best / 60) + ':' + String(best % 60).padStart(2, '0'), button: 'Play again', onStart: () => { mi = 0; time = 0; kills = 0; hp = 100; ammo = 40; load(); state = 'play'; } }); }
 
 const FOV = 1.05, WALLC = { '#': [90, 100, 120], D: [150, 110, 60], K: [190, 50, 60], E: [40, 200, 90] };
+
+const TEXC = {};
+function wallTex(ch) {
+  if (TEXC[ch]) return TEXC[ch];
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'), b = WALLC[ch] || WALLC['#'], col = 'rgb(' + b[0] + ',' + b[1] + ',' + b[2] + ')';
+  const lite = 'rgb(' + Math.min(255, b[0] + 40) + ',' + Math.min(255, b[1] + 40) + ',' + Math.min(255, b[2] + 40) + ')', dark = 'rgb(' + (b[0] * 0.55 | 0) + ',' + (b[1] * 0.55 | 0) + ',' + (b[2] * 0.55 | 0) + ')';
+  g.fillStyle = col; g.fillRect(0, 0, 64, 64);
+  for (let i = 0; i < 400; i++) { g.fillStyle = Math.random() < 0.5 ? 'rgba(0,0,0,.12)' : 'rgba(255,255,255,.07)'; g.fillRect(Math.random() * 64, Math.random() * 64, 1, 1); }
+  if (ch === 'D' || ch === 'K') {
+    g.fillStyle = dark; g.fillRect(0, 0, 64, 4); g.fillRect(0, 60, 64, 4); g.fillRect(0, 0, 4, 64); g.fillRect(60, 0, 4, 64);
+    g.fillStyle = lite; for (let y = 10; y < 56; y += 8) g.fillRect(8, y, 48, 2);
+    g.fillStyle = dark; for (let y = 12; y < 58; y += 8) g.fillRect(8, y, 48, 1);
+    if (ch === 'K') { for (let x = -64; x < 64; x += 12) { g.fillStyle = '#ffd23a'; g.beginPath(); g.moveTo(x, 64); g.lineTo(x + 6, 64); g.lineTo(x + 70, 0); g.lineTo(x + 64, 0); g.fill(); } g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#e63946'; g.fillRect(26, 26, 12, 12); g.fillStyle = '#fff'; g.fillRect(29, 30, 6, 4); }
+    g.fillStyle = '#111'; g.fillRect(31, 4, 2, 56);
+  } else {
+    // concrete panels with seams, bolts, vents and stains
+    g.fillStyle = dark; g.fillRect(0, 31, 64, 2); g.fillRect(31, 0, 2, 64);
+    g.fillStyle = lite; g.fillRect(0, 33, 64, 1); g.fillRect(33, 0, 1, 64);
+    g.fillStyle = dark; [[4, 4], [27, 4], [4, 27], [27, 27], [37, 37], [59, 37], [37, 59], [59, 59], [37, 4], [59, 4], [4, 37], [4, 59]].forEach(p => { g.fillRect(p[0], p[1], 2, 2); });
+    g.fillStyle = dark; g.fillRect(40, 12, 16, 10); g.fillStyle = 'rgba(0,0,0,.6)'; for (let y = 13; y < 22; y += 2) g.fillRect(41, y, 14, 1);
+    const st = g.createLinearGradient(0, 40, 0, 64); st.addColorStop(0, 'rgba(0,0,0,0)'); st.addColorStop(1, 'rgba(0,0,0,.3)'); g.fillStyle = st; g.fillRect(0, 40, 64, 24);
+    g.fillStyle = 'rgba(40,30,20,.25)'; g.fillRect(10, 44, 3, 16); g.fillRect(14, 48, 2, 12);
+  }
+  return (TEXC[ch] = cv);
+}
 function draw(c, t) {
   c.fillStyle = '#0a0c10'; c.fillRect(0, 0, W, H);
   if (!g) return;
   // ceiling + floor
   const sky = c.createLinearGradient(0, 0, 0, VIEWH / 2); sky.addColorStop(0, '#1a2030'); sky.addColorStop(1, '#3a4258'); c.fillStyle = sky; c.fillRect(0, 0, W, VIEWH / 2);
-  const fl = c.createLinearGradient(0, VIEWH / 2, 0, VIEWH); fl.addColorStop(0, '#2a2a2e'); fl.addColorStop(1, '#4a4a50'); c.fillStyle = fl; c.fillRect(0, VIEWH / 2, W, VIEWH / 2);
+  const fl = c.createLinearGradient(0, VIEWH / 2, 0, VIEWH); fl.addColorStop(0, '#16161a'); fl.addColorStop(1, '#4a4a54'); c.fillStyle = fl; c.fillRect(0, VIEWH / 2, W, VIEWH / 2);
+  // floor tiles in perspective
+  c.strokeStyle = 'rgba(255,255,255,.07)'; c.lineWidth = 1; for (let k = 1; k < 9; k++) { const y = VIEWH / 2 + (VIEWH / 2) * Math.pow(k / 9, 1.8); c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke(); }
+  const ph = (pl.a / (Math.PI * 2)) * 8 % 1; for (let k = -8; k <= 8; k++) { c.beginPath(); c.moveTo(W / 2 + (k + ph) * 6, VIEWH / 2); c.lineTo(W / 2 + (k + ph) * 70, VIEWH); c.stroke(); }
+  // ceiling lights
+  for (let k = 0; k < 5; k++) { const x = ((k * 70 - pl.a * 120) % 350 + 350) % 350 - 40; c.fillStyle = 'rgba(255,250,220,.5)'; c.fillRect(x, 8 + (k % 2) * 6, 26, 3); }
   // walls by DDA raycasting
   for (let col = 0; col < W; col++) {
     const ra = pl.a - FOV / 2 + FOV * col / W, dx = Math.cos(ra), dy = Math.sin(ra);
@@ -118,8 +148,8 @@ function draw(c, t) {
     const perp = dist * Math.cos(ra - pl.a), hh = Math.min(VIEWH * 3, VIEWH / Math.max(0.05, perp)), top = VIEWH / 2 - hh / 2 + (hitDoor ? hh * hitDoor : 0);
     const base = WALLC[ch] || WALLC['#'], shade = Math.max(0.2, 1 - perp / 12) * (side ? 0.78 : 1);
     const wx = side === 0 ? pl.y + perp * dy : pl.x + perp * dx, frac = wx - Math.floor(wx), stripe = frac < 0.06 || frac > 0.94 ? 0.7 : 1;
-    c.fillStyle = 'rgb(' + (base[0] * shade * stripe | 0) + ',' + (base[1] * shade * stripe | 0) + ',' + (base[2] * shade * stripe | 0) + ')';
-    c.fillRect(col, top, 1, hh - (hitDoor ? hh * hitDoor : 0));
+    const tex = wallTex(ch), tx = Math.min(63, Math.floor(frac * 64)), vis = hh - (hitDoor ? hh * hitDoor : 0);
+    if (vis > 0) { c.drawImage(tex, tx, hitDoor ? 64 * hitDoor : 0, 1, 64 * (1 - (hitDoor || 0)) || 1, col, top, 1, vis); c.fillStyle = 'rgba(0,0,8,' + (1 - shade * stripe).toFixed(3) + ')'; c.fillRect(col, top, 1, vis); }
     zbuf[col] = perp;
   }
   // exit pad glow on floor (draw as sprite)

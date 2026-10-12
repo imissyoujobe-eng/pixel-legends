@@ -7,6 +7,7 @@
 </head>
 <body>
 <script src="../lib/kit.js"></script>
+<script src="../lib/art.js"></script>
 <script>
 // Knockout Kid: work your way up a ladder of five boxers. Read their tells, dodge, then punch through the opening.
 K.theme({ bg: '#120a14', ink: '#fff4f0', accent: '#ff3b5c', accentInk: '#fff' });
@@ -89,26 +90,33 @@ function decision() { const win = foe.hp / foe.F.hp < me.hp / 100; if (win) vict
 function defeat() { state = 'over'; K.tune([392, 330, 262, 196], 0.18, { type: 'sawtooth' }); K.card({ title: 'DOWN FOR THE COUNT', text: foe.F.n + ' wins this one. Study the tells and try again!', best: wins ? 'FURTHEST: FIGHT ' + wins : '', button: 'Rematch', onStart: fight }); }
 
 function draw(c, t) {
-  c.fillStyle = '#1a0e1e'; c.fillRect(0, 0, W, H);
-  // crowd
-  for (let i = 0; i < 60; i++) { c.fillStyle = ['#3a2a4a', '#4a3a5a', '#2a1a3a'][i % 3]; c.beginPath(); c.arc((i * 17) % W, 20 + Math.floor(i / 15) * 14 + Math.sin(t / 300 + i) * 1.5, 7, 0, 7); c.fill(); }
+  const ag = c.createLinearGradient(0, 0, 0, 150); ag.addColorStop(0, '#05030a'); ag.addColorStop(1, '#2a1630'); c.fillStyle = ag; c.fillRect(0, 0, W, H);
+  // crowd: rows of fans with faces and shirts, bobbing, lit by the ring
+  for (let row = 0; row < 5; row++) for (let i = 0; i < 18; i++) { const x = i * 15 + (row % 2) * 7 - 4, y = 22 + row * 15 + Math.sin(t / 250 + i * 1.7 + row) * (1.5 + row * 0.3), sh = 0.45 + row * 0.12; const shirt = ['#c84a4a', '#4a7ac8', '#e8c04a', '#5aa85a', '#8a5ac8', '#e8e8e8'][(i * 7 + row * 3) % 6], skin = ['#f0c8a0', '#c8905a', '#8a5a3a', '#e8b080'][(i + row * 2) % 4];
+    c.globalAlpha = sh; c.fillStyle = shirt; c.fillRect(x - 6, y + 4, 12, 12); c.fillStyle = skin; c.beginPath(); c.arc(x, y, 5, 0, 7); c.fill(); c.fillStyle = ['#2a1a0a', '#c8a050', '#111', '#8a3a1a'][(i * 3 + row) % 4]; c.fillRect(x - 5, y - 5, 10, 3); if ((i + row) % 5 === 0) { c.fillStyle = skin; c.fillRect(x + 5, y - 6 + Math.sin(t / 120 + i) * 3, 2, 8); } c.globalAlpha = 1; }
+  A.glow(c, 60, 0, 120, '255,240,200', 0.12); A.glow(c, 196, 0, 120, '255,240,200', 0.12);
+  c.fillStyle = 'rgba(255,250,220,.06)'; c.beginPath(); c.moveTo(40, 0); c.lineTo(80, 0); c.lineTo(150, 240); c.lineTo(60, 240); c.fill(); c.beginPath(); c.moveTo(176, 0); c.lineTo(216, 0); c.lineTo(196, 240); c.lineTo(106, 240); c.fill();
   if (Math.random() < 0.05) fx.push({ flash: true, x: K.rnd(0, W), y: K.rnd(10, 60), l: 0.1 });
   // ring
-  c.fillStyle = '#3a6ad8'; c.fillRect(0, 150, W, 90); c.fillStyle = '#5a8aff'; c.fillRect(0, 150, W, 6);
-  c.strokeStyle = '#ff3b5c'; c.lineWidth = 2; for (let k = 0; k < 3; k++) { c.beginPath(); c.moveTo(0, 90 + k * 18); c.lineTo(W, 96 + k * 18); c.stroke(); }
+  const rg = c.createLinearGradient(0, 150, 0, 240); rg.addColorStop(0, '#5a8aff'); rg.addColorStop(0.08, '#3a6ad8'); rg.addColorStop(1, '#1a3a90'); c.fillStyle = rg; c.fillRect(0, 150, W, 90);
+  c.fillStyle = 'rgba(255,255,255,.08)'; for (let k = 0; k < 40; k++) c.fillRect(A.hash(k, 1) * W, 156 + A.hash(k, 2) * 80, 3, 1); c.fillStyle = 'rgba(255,255,255,.18)'; c.beginPath(); c.ellipse(128, 200, 50, 14, 0, 0, 7); c.fill(); K.text(c, 'PIXEL', 128, 200, 12, 'rgba(255,255,255,.35)');
+  c.fillStyle = A.INK; c.fillRect(0, 148, W, 3); A.part(c, 4, 82, 8, 70, '#c8c8d8'); A.part(c, W - 12, 82, 8, 70, '#c8c8d8');
+  for (let k = 0; k < 3; k++) { const y0 = 90 + k * 18; c.strokeStyle = A.INK; c.lineWidth = 4.5; c.beginPath(); c.moveTo(0, y0); c.quadraticCurveTo(W / 2, y0 + 10, W, y0 + 6); c.stroke(); c.strokeStyle = ['#ff3b5c', '#f4f4f4', '#3a6ad8'][k]; c.lineWidth = 3; c.stroke(); c.strokeStyle = 'rgba(255,255,255,.5)'; c.lineWidth = 1; c.beginPath(); c.moveTo(0, y0 - 1); c.quadraticCurveTo(W / 2, y0 + 9, W, y0 + 5); c.stroke(); } c.lineWidth = 1;
   if (!foe) return;
   // opponent
   const F = foe.F, cx = 128 + Math.sin(foe.sway) * 6 + (foe.hit > 0 ? (Math.random() - .5) * 6 : 0), down = foe.st === 'down';
   c.save(); c.translate(cx, down ? 150 : 128);
   if (down) c.rotate(1.3);
   const tell = foe.st === 'tell', atk = foe.st === 'attack', open = foe.st === 'open' || foe.st === 'stun';
-  c.fillStyle = F.skin; c.fillRect(-26, -40, 52, 52); c.fillStyle = F.trunks; c.fillRect(-26, 8, 52, 22); c.fillStyle = '#fff'; c.fillRect(-26, 8, 52, 4);
-  c.fillStyle = F.skin; c.fillRect(-14, -66, 28, 28); c.fillStyle = F.hair; c.fillRect(-14, -70, 28, 9);
+  c.fillStyle = 'rgba(0,0,0,.3)'; c.beginPath(); c.ellipse(0, 34, 34, 8, 0, 0, 7); c.fill();
+  A.part(c, -26, -40, 52, 52, F.skin); c.fillStyle = 'rgba(0,0,0,.15)'; c.fillRect(-2, -34, 1.5, 22); c.fillRect(-16, -16, 12, 1.5); c.fillRect(4, -16, 12, 1.5); c.fillRect(-14, -6, 10, 1.2); c.fillRect(4, -6, 10, 1.2);
+  A.part(c, -26, 8, 52, 22, F.trunks); c.fillStyle = '#fff'; c.fillRect(-26, 8, 52, 4); c.fillStyle = 'rgba(255,255,255,.25)'; c.fillRect(-22, 14, 3, 14);
+  A.part(c, -6, -42, 12, 5, F.skin); A.part(c, -14, -66, 28, 28, F.skin); A.part(c, -14, -70, 28, 9, F.hair); c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(-3, -54, 6, 6);
   c.fillStyle = tell ? (Math.floor(t / 60) % 2 ? '#ff3b5c' : '#fff') : '#000'; c.fillRect(-8, -56, 5, 4); c.fillRect(3, -56, 5, 4);
   c.fillStyle = '#5a2a1a'; c.fillRect(-6, -46, 12, open ? 6 : 3);
   if (open) K.text(c, '★', 0, -82, 12, '#ffd23f');
   // gloves
-  const glove = (gx, gy, s) => { c.fillStyle = '#e63946'; c.beginPath(); c.arc(gx, gy, s, 0, 7); c.fill(); c.fillStyle = 'rgba(255,255,255,.4)'; c.beginPath(); c.arc(gx - s / 3, gy - s / 3, s / 3, 0, 7); c.fill(); };
+  const glove = (gx, gy, s) => { A.ball(c, gx, gy, s, '#e63946'); c.fillStyle = 'rgba(255,255,255,.55)'; c.beginPath(); c.ellipse(gx - s / 3, gy - s / 2.6, s / 3.2, s / 5, -0.5, 0, 7); c.fill(); c.fillStyle = '#f4f4f4'; c.fillRect(gx - s * 0.6, gy + s * 0.55, s * 1.2, s * 0.3); };
   const mv = foe.mv;
   if (atk && (mv === 'hookL' || mv === 'hookR')) { const s = mv === 'hookL' ? -1 : 1; glove(s * 10, -10, 22); glove(-s * 26, -18, 13); }
   else if (atk && mv === 'upper') { glove(0, -30, 24); glove(-26, -10, 13); }
@@ -135,6 +143,7 @@ function draw(c, t) {
   if (msgT > 0) K.text(c, msg, 128, 110, 16, '#fff');
 }
 title();
+{ const _draw = draw; draw = function (c, t) { _draw(c, t); A.vignette(c, W, H, 0.4); }; }
 K.run(update, draw);
 </script>
 </body>

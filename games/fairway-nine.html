@@ -7,6 +7,7 @@
 </head>
 <body>
 <script src="../lib/kit.js"></script>
+<script src="../lib/art.js"></script>
 <script>
 // Fairway Nine: nine holes of top-down golf. Pull back to aim and set power, mind the wind, sand, trees and water.
 K.theme({ bg: '#123a1c', ink: '#f4fff0', accent: '#ffd23f', accentInk: '#2a1d00' });
@@ -151,9 +152,11 @@ function update(dt) {
 
 function ell(c, e, col) { c.fillStyle = col; c.beginPath(); c.ellipse(e[0], e[1], e[2], e[3], 0, 0, 7); c.fill(); }
 function draw(c, t) {
-  c.fillStyle = '#3f8f3a'; c.fillRect(0, 0, W, H);
-  c.fillStyle = '#3a8435'; for (let y = 0; y < H; y += 6) for (let x = (y / 6 % 2) * 6; x < W; x += 12) c.fillRect(x, y, 2, 2);
+  for (let ty = 0; ty < H / 16 + 1; ty++) for (let tx = 0; tx < W / 16 + 1; tx++) A.grassTD(c, tx * 16, ty * 16, tx, ty, { base: '#3e8a36', hi: '#58a84a', lo: '#2e6e2a' });
   if (!hd) return;
+  const inE = (e, x, y, pad) => ((x - e[0]) / (e[2] + pad)) ** 2 + ((y - e[1]) / (e[3] + pad)) ** 2 < 1;
+  const clear = (x, y) => !hd.fair.some(e => inE(e, x, y, 10)) && !hd.water.some(e => inE(e, x, y, 8)) && !hd.sand.some(e => inE(e, x, y, 8)) && !inE(hd.green, x, y, 12) && Math.hypot(x - hd.tee[0], y - hd.tee[1]) > 20;
+  const trees = []; for (let i = 0; i < 70; i++) { const x = A.hash(i, hole, 1) * W, y = A.hash(i, hole, 2) * H; if (clear(x, y)) trees.push([x, y, i]); }
   for (const e of hd.fair) ell(c, e, '#6cc24a');
   c.save(); c.beginPath(); for (const e of hd.fair) { c.moveTo(e[0] + e[2], e[1]); c.ellipse(e[0], e[1], e[2], e[3], 0, 0, 7); } c.clip();
   c.fillStyle = '#62b442'; for (let y = 0; y < H; y += 16) c.fillRect(0, y, W, 8); c.restore();
@@ -161,7 +164,9 @@ function draw(c, t) {
   c.save(); c.beginPath(); for (const e of hd.water) { c.moveTo(e[0] + e[2], e[1]); c.ellipse(e[0], e[1], e[2], e[3], 0, 0, 7); } c.clip();
   c.fillStyle = 'rgba(255,255,255,.25)'; for (let i = 0; i < 30; i++) c.fillRect((i * 37 + t / 40) % W, (i * 53) % H, 6, 1); c.restore();
   ell(c, [hd.green[0], hd.green[1], hd.green[2] + 3, hd.green[3] + 3], '#76d054'); ell(c, hd.green, '#93e870');
-  for (const e of hd.sand) { ell(c, [e[0], e[1], e[2] + 1, e[3] + 1], '#c9b070'); ell(c, e, '#efdca0'); }
+  for (const e of hd.sand) { ell(c, [e[0], e[1], e[2] + 2, e[3] + 2], '#9a8048'); ell(c, [e[0], e[1], e[2] + 1, e[3] + 1], '#c9b070'); ell(c, e, '#efdca0'); c.save(); c.beginPath(); c.ellipse(e[0], e[1], e[2], e[3], 0, 0, 7); c.clip(); for (let k = 0; k < 40; k++) { c.fillStyle = k % 2 ? 'rgba(160,130,70,.4)' : 'rgba(255,255,255,.4)'; c.fillRect(e[0] - e[2] + A.hash(k, e[0]) * e[2] * 2, e[1] - e[3] + A.hash(k, e[1]) * e[3] * 2, 1, 1); } c.restore(); }
+  for (const e of hd.water) { c.strokeStyle = 'rgba(255,255,255,.6)'; c.lineWidth = 1; c.beginPath(); c.ellipse(e[0], e[1], e[2] - 1, e[3] - 1, 0, Math.PI * 1.1, Math.PI * 1.9); c.stroke(); }
+  trees.sort((a, b) => a[1] - b[1]).forEach(([x, y, i]) => A.treeTD(c, x - 8, y - 12, i, hole));
   // tee box
   c.fillStyle = '#7ad458'; c.fillRect(hd.tee[0] - 10, hd.tee[1] - 6, 20, 12); c.fillStyle = '#fff'; c.fillRect(hd.tee[0] - 9, hd.tee[1] - 1, 2, 2); c.fillRect(hd.tee[0] + 7, hd.tee[1] - 1, 2, 2);
   // cup + flag
@@ -194,6 +199,7 @@ function draw(c, t) {
   if (msgT > 0) K.text(c, msg, W / 2, H / 2 - 30, 15, '#ffd23f');
 }
 title();
+{ const _draw = draw; draw = function (c, t) { _draw(c, t); A.vignette(c, W, H, 0.25); }; }
 K.run(update, draw);
 </script>
 </body>

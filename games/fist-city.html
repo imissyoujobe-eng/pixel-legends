@@ -7,19 +7,22 @@
 </head>
 <body>
 <script src="../lib/kit.js"></script>
+<script src="../lib/art.js"></script>
 <script src="../lib/brawl.js"></script>
 <script>
 // Fist City: the mayor puts on his boots and cleans up the city himself. Smash barrels for roast chicken, grab pipes and swords, and take down the gang bosses.
 const ZMIN = B.ZMIN;
 function town(sky, wall, sign, floor, train) {
+  const pal = Object.assign({}, A.PAL.stone, { base: floor, hi: A.shade(floor, 0.18), lo: A.shade(floor, -0.25), mortar: A.shade(floor, -0.55) });
   return function (c, cx, t) {
-    c.fillStyle = sky; c.fillRect(0, 0, 320, ZMIN);
-    for (let i = -1; i < 5; i++) { const x = i * 100 - (cx % 100); c.fillStyle = wall; c.fillRect(x, 30, 96, ZMIN - 30); c.fillStyle = '#1a1a22'; c.fillRect(x + 8, 50, 34, 30); c.fillRect(x + 54, 50, 34, 30); c.fillStyle = sign; c.fillRect(x + 20, 96, 56, 14); c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(x + 30, 116, 36, ZMIN - 116); c.fillStyle = 'rgba(255,255,255,.12)'; c.fillRect(x + 94, 30, 2, ZMIN - 30); }
-    if (train) { const tx = (t * 220) % 900 - 300; c.fillStyle = '#9aa0aa'; c.fillRect(tx, 100, 240, 40); c.fillStyle = '#2a3a5a'; for (let i = 0; i < 8; i++) c.fillRect(tx + 8 + i * 29, 108, 20, 14); }
-    c.fillStyle = floor; c.fillRect(0, ZMIN - 8, 320, 240); c.fillStyle = 'rgba(255,255,255,.07)'; for (let y = ZMIN; y < 240; y += 16) c.fillRect(0, y, 320, 1); for (let x = -(cx % 32); x < 320; x += 32) c.fillRect(x, ZMIN - 8, 1, 90);
+    A.sky(c, 320, ZMIN, { top: sky, mid: A.shade(sky, 0.25), bottom: A.shade(sky, 0.5), stars: true, clouds: false }, t * 1000);
+    A.skyline(c, cx, { factor: 0.2, base: ZMIN - 40, col: A.shade(sky, -0.3), amp: 80 });
+    if (train) { const tx = (t * 220) % 900 - 300; A.part(c, tx, 92, 240, 40, '#9aa0aa'); for (let i = 0; i < 8; i++) { c.fillStyle = '#ffe8a0'; c.fillRect(tx + 8 + i * 29, 100, 20, 14); } c.fillStyle = '#3a4a6a'; c.fillRect(tx, 126, 240, 3); }
+    A.facades(c, cx, { factor: 1, base: ZMIN - 8, h: 100, w: 96, cols: [wall, A.shade(wall, 0.1), A.shade(wall, -0.12)], awn: [sign, '#3a3a4a'], signs: [sign, '#4ad8ff', '#ffd23a'], lit: 0.45 });
+    c.fillStyle = A.INK; c.fillRect(0, ZMIN - 10, 320, 3); c.fillStyle = '#9a9aa0'; c.fillRect(0, ZMIN - 9, 320, 2);
+    A.floor(c, cx, ZMIN - 8, 240, 320, pal);
   };
-}
-const look = (top, legs, hair, extra) => Object.assign({ skin: '#e0b088', hair, top, legs, belt: '#222' }, extra || {});
+}const look = (top, legs, hair, extra) => Object.assign({ skin: '#e0b088', hair, top, legs, belt: '#222' }, extra || {});
 B.start({
   title: 'FIST CITY', key: 'fistcity', button: 'Clean Up',
   theme: { bg: '#0e0e16', ink: '#f0f4ff', accent: '#ffd23a', accentInk: '#221a00' },

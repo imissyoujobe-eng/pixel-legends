@@ -7,6 +7,7 @@
 </head>
 <body>
 <script src="../lib/kit.js"></script>
+<script src="../lib/art.js"></script>
 <script src="../lib/three.min.js"></script>
 <script>
 // Wing Squadron: a 3D on-rails space shooter. Blast fighters, fly through rings for shields, and take down the mothership at the end of each stage.
@@ -34,9 +35,9 @@ function setup() {
 function fit() { const r = stageEl.getBoundingClientRect(), w = Math.max(100, r.width), h = Math.max(100, r.height); renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = w < h ? 85 : 65; camera.updateProjectionMatrix(); const d = Math.min(devicePixelRatio || 1, 2); hudC.width = w * d; hudC.height = h * d; hud.setTransform(d, 0, 0, d, 0, 0); hudC._w = w; hudC._h = h; }
 function title() { K.card({ title: 'WING SQUADRON', text: 'Fly with the arrow pad (or drag on the screen). FIRE shoots lasers, BOMB clears everything nearby. Fly through gold rings to repair your shield. Survive each stage and destroy the mothership waiting at the end!', best: best ? 'BEST ' + best : '', button: 'Launch', onStart: () => { if (!renderer) setup(); si = 0; score = 0; bombs = 3; shield = 100; loadStage(); state = 'play'; } }); }
 function loadStage() {
-  const S = STAGES[si]; scene = new THREE.Scene(); scene.background = new THREE.Color(S.sky); scene.fog = new THREE.Fog(S.fog, 60, 260);
+  const S = STAGES[si]; scene = new THREE.Scene(); scene.background = A.skyTex(THREE, '#' + new THREE.Color(S.sky).offsetHSL(0, 0, -0.15).getHexString(), '#' + new THREE.Color(S.fog).getHexString()); scene.fog = new THREE.Fog(S.fog, 60, 260);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x334455, 0.9)); const sun = new THREE.DirectionalLight(0xffffff, 0.7); sun.position.set(30, 80, 40); scene.add(sun);
-  if (S.ground !== null) { const g = new THREE.Mesh(new THREE.PlaneGeometry(400, 800, 20, 40), new THREE.MeshLambertMaterial({ color: S.ground, wireframe: false })); g.rotation.x = -Math.PI / 2; g.position.set(0, -10, -300); scene.add(g); const grid = new THREE.GridHelper(400, 40, 0x000000, 0x000000); grid.material.opacity = 0.15; grid.material.transparent = true; grid.position.set(0, -9.9, -300); scene.add(grid); scene.userData.grid = grid; }
+  if (S.ground !== null) { const g = new THREE.Mesh(new THREE.PlaneGeometry(400, 800, 20, 40), new THREE.MeshLambertMaterial({ color: 0xffffff, map: A.tex3(THREE, si === 0 ? 'fields' : si === 1 ? 'sand' : 'grass', S.ground, si === 0 ? 10 : 24) })); g.rotation.x = -Math.PI / 2; g.position.set(0, -10, -300); scene.add(g); const grid = new THREE.GridHelper(400, 40, 0x000000, 0x000000); grid.material.opacity = 0.15; grid.material.transparent = true; grid.position.set(0, -9.9, -300); scene.add(grid); scene.userData.grid = grid; }
   else { const stars = new THREE.BufferGeometry(), arr = []; for (let i = 0; i < 600; i++) arr.push((Math.random() - .5) * 400, (Math.random() - .5) * 300, -Math.random() * 500); stars.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); scene.add(new THREE.Points(stars, new THREE.PointsMaterial({ color: 0xffffff, size: 1 }))); }
   shipM = makeShip(0x46d0ff); scene.add(shipM);
   ship = { x: 0, y: 0, vx: 0, vy: 0, roll: 0, inv: 1.5 }; ents = []; shots = []; eshots = []; rings = []; fx = []; dist = 0; boss = null; fireT = 0; msg = 'STAGE ' + (si + 1) + ': ' + S.n.toUpperCase(); msgT = 2.5; scene.userData.props = [];

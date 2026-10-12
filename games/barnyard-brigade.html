@@ -7,6 +7,7 @@
 </head>
 <body>
 <script src="../lib/kit.js"></script>
+<script src="../lib/art.js"></script>
 <script>
 // Barnyard Brigade: turn-based squad battle. Your helmeted goats take on the computer's rooster regiment across hills you can blow apart.
 K.theme({ bg: '#10203a', ink: '#fff8ea', accent: '#ffd23f', accentInk: '#2a1d00' });
@@ -204,16 +205,22 @@ function drawUnit(c, u, t, active) {
   if (active) { c.fillStyle = '#ffd23f'; c.beginPath(); c.moveTo(x - 4, y - 38 + Math.sin(t / 150) * 2); c.lineTo(x + 4, y - 38 + Math.sin(t / 150) * 2); c.lineTo(x, y - 33 + Math.sin(t / 150) * 2); c.fill(); }
 }
 function draw(c, t) {
-  const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#5aa0e8'); g.addColorStop(1, '#cfe9ff'); c.fillStyle = g; c.fillRect(0, 0, W, H);
   const cm = cam || 0;
-  c.fillStyle = '#9cc4a4'; c.beginPath(); c.moveTo(0, H); for (let x = 0; x <= W; x += 8) c.lineTo(x, 120 - Math.sin((x + cm * 0.3) / 60) * 20); c.lineTo(W, H); c.fill();
+  A.sky(c, W, H, { top: '#3a7ad8', mid: '#8ac8f8', bottom: '#e8f6ff', sun: '#fff6c0', sunY: 40 }, t);
+  A.ridge(c, cm, { factor: 0.12, base: 115, amp: 30, col: '#a8c8b0', edge: 'rgba(0,0,0,.12)', seed: 2, fog: 'rgba(230,245,255,.4)' });
+  A.ridge(c, cm, { factor: 0.3, base: 135, amp: 22, col: '#7ab07a', edge: 'rgba(0,0,0,.2)', seed: 5 });
+  A.trees(c, cm, { factor: 0.3, base: 138, col: '#3a7a3a', hi: '#5a9a4a', kind: 'round', spacing: 38, size: 0.8 });
   // barn in the distance
   const bx = 300 - cm * 0.3; c.fillStyle = '#b83a2a'; c.fillRect(bx, 92, 34, 26); c.beginPath(); c.moveTo(bx - 3, 93); c.lineTo(bx + 17, 78); c.lineTo(bx + 37, 93); c.fill(); c.fillStyle = '#fff'; c.fillRect(bx + 12, 102, 10, 16);
   if (!ground) { c.fillStyle = '#6a8f3a'; c.fillRect(0, 160, W, 80); return; }
   // terrain
   c.fillStyle = '#7a5230'; c.beginPath(); c.moveTo(0, H);
   for (let sx = 0; sx <= W; sx += 2) c.lineTo(sx, gAt(sx + cm)); c.lineTo(W, H); c.fill();
-  c.strokeStyle = '#5cb83a'; c.lineWidth = 3; c.beginPath(); for (let sx = 0; sx <= W; sx += 2) { const y = gAt(sx + cm); sx ? c.lineTo(sx, y + 1) : c.moveTo(sx, y + 1); } c.stroke();
+  c.save(); c.beginPath(); c.moveTo(0, H); for (let sx = 0; sx <= W; sx += 2) c.lineTo(sx, gAt(sx + cm)); c.lineTo(W, H); c.closePath(); c.clip();
+  for (let ty = 0; ty < H / 16 + 1; ty++) for (let x = -((cm | 0) % 16) - 16; x < W; x += 16) A.tile(c, 'bb', x, ty * 16, { t: false, b: false, l: false, r: false }, Math.floor((x + cm) / 16), ty, A.PAL.earth);
+  c.restore();
+  c.strokeStyle = A.INK; c.lineWidth = 6; c.beginPath(); for (let sx = 0; sx <= W; sx += 2) { const y = gAt(sx + cm); sx ? c.lineTo(sx, y + 1) : c.moveTo(sx, y + 1); } c.stroke();
+  c.strokeStyle = '#4caa3a'; c.lineWidth = 4.5; c.stroke(); c.strokeStyle = '#7ad65a'; c.lineWidth = 1.5; c.beginPath(); for (let sx = 0; sx <= W; sx += 2) { const y = gAt(sx + cm); sx ? c.lineTo(sx, y - 0.5) : c.moveTo(sx, y - 0.5); } c.stroke();
   c.fillStyle = 'rgba(0,0,0,.12)'; for (let sx = 0; sx < W; sx += 14) c.fillRect(sx + ((cm | 0) % 14 ? 0 : 0), gAt(sx + cm) + 12 + (sx * 7) % 20, 4, 3);
   // water
   c.fillStyle = '#2a6fb8'; c.fillRect(0, WATER, W, H - WATER); c.fillStyle = 'rgba(255,255,255,.4)'; for (let x = -((t / 30) % 16); x < W; x += 16) c.fillRect(x, WATER + Math.sin(t / 300 + x) * 1.5, 8, 2);
@@ -239,6 +246,7 @@ function draw(c, t) {
   if (msgT > 0) K.text(c, msg, W / 2, 42, 13, '#fff');
 }
 title();
+{ const _draw = draw; draw = function (c, t) { _draw(c, t); A.vignette(c, W, H, 0.2); }; }
 K.run(update, draw);
 </script>
 </body>

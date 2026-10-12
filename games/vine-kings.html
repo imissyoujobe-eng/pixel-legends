@@ -8,10 +8,11 @@
 <body>
 <script src="../lib/kit.js"></script>
 <script src="../lib/plat.js"></script>
+<script src="../lib/art.js"></script>
 <script>
 // Vine Kings: a lemur's jungle romp. Roll through enemies, blast out of barrel cannons, ride the mine cart and spell V-I-N-E in every level.
 K.theme({ bg: '#0a1a0c', ink: '#fffaf0', accent: '#ffd23f', accentInk: '#2a1d00' });
-const VW = 320, VH = 240, T = 16;
+const VW = 256, VH = 192, T = 16;
 K.screen(VW, VH);
 K.hud(['score', 'fruit', 'lives', 'letters']);
 K.pad({ dpad: 'lr', buttons: [{ id: 'b', label: 'ROLL' }, { id: 'a', label: 'JUMP' }] });
@@ -115,8 +116,8 @@ function victory() { state = 'over'; const f = score + lives * 5000; best = K.sa
 
 function drawTile(c, ch, x, y, tx, ty, t) {
   const L = LVLS[li];
-  if (ch === '#') { c.fillStyle = L.g; c.fillRect(x, y, T, T); c.fillStyle = 'rgba(0,0,0,.2)'; if ((tx + ty * 2) % 3 === 0) c.fillRect(x + 2, y + 9, 5, 3); if (w.g[ty - 1] && w.g[ty - 1][tx] !== '#') { c.fillStyle = L.top; c.fillRect(x, y, T, 4); c.fillRect(x + 3, y + 4, 2, 3); c.fillRect(x + 11, y + 4, 2, 2); } }
-  else if (ch === 'H') { c.fillStyle = li === 2 ? '#3a2a1a' : '#8a8a6a'; c.fillRect(x, y, T, T); c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(x, y + 15, T, 1); c.fillRect(x + 15, y, 1, T); if (li === 3) { c.fillStyle = 'rgba(255,255,255,.12)'; c.fillRect(x + 2, y + 2, 5, 5); } }
+  if (ch === '#') { artTile(c, '#', x, y, tx, ty, li, '#', (ART[li] || ART[0]).pal); }
+  else if (ch === 'H') { artTile(c, 'H', x, y, tx, ty, li, 'H', (li === 2 ? A.PAL.wood : A.PAL.stone)); }
   else if (ch === '=') { if (LVLS[li].cart) { c.fillStyle = '#5a3a1a'; for (let k = 0; k < T; k += 6) c.fillRect(x + k, y + 4, 3, 4); c.fillStyle = '#c0c6d6'; c.fillRect(x, y + 2, T, 2); } else { c.fillStyle = '#8a5a2a'; c.fillRect(x, y, T, 5); c.fillStyle = '#5cc23a'; c.fillRect(x, y, T, 2); c.fillStyle = '#3a8a2a'; c.fillRect(x + (tx % 3) * 4, y + 5, 4, 4); } }
   else if (ch === 'f') { const b = Math.sin(t / 250 + tx) * 1.5; c.fillStyle = '#ffd23f'; c.beginPath(); c.ellipse(x + 8, y + 8 + b, 3, 6, 0.5, 0, 7); c.fill(); c.fillStyle = '#7a5a1a'; c.fillRect(x + 10, y + 2 + b, 2, 2); }
   else if ('VINE'.includes(ch)) { c.fillStyle = '#fff'; c.beginPath(); c.arc(x + 8, y + 8, 7, 0, 7); c.fill(); K.text(c, ch, x + 8, y + 9, 10, '#e63946'); }
@@ -142,10 +143,7 @@ function drawEnt(c, e, x, y, t) {
 }
 function draw(c, t) {
   if (!w) { c.fillStyle = '#2a6a3a'; c.fillRect(0, 0, VW, VH); return; }
-  const L = LVLS[li]; c.fillStyle = L.sky; c.fillRect(0, 0, VW, VH);
-  // jungle backdrop
-  if (!L.cart) { for (let i = 0; i < 10; i++) { const x = ((i * 110 - cam.x * 0.3) % 1100 + 1100) % 1100 - 60; c.fillStyle = li === 1 ? '#c87a4a' : '#1f5a2a'; c.fillRect(x + 20, 40, 14, 180); c.fillStyle = li === 1 ? '#e8945a' : '#2f7a3a'; c.beginPath(); c.arc(x + 27, 40, 34, 0, 7); c.fill(); } c.strokeStyle = 'rgba(30,90,40,.8)'; c.lineWidth = 2; for (let i = 0; i < 8; i++) { const x = ((i * 90 - cam.x * 0.6) % 720 + 720) % 720 - 40; c.beginPath(); c.moveTo(x, 0); c.quadraticCurveTo(x + 10, 50, x, 80 + (i % 3) * 20); c.stroke(); } }
-  else { c.fillStyle = '#2a1e14'; for (let i = 0; i < 12; i++) { const x = ((i * 60 - cam.x * 0.4) % 720 + 720) % 720 - 40; c.fillRect(x, 0, 6, VH); c.fillRect(x - 20, 30, 46, 6); } c.fillStyle = 'rgba(255,200,80,.6)'; for (let i = 0; i < 6; i++) { const x = ((i * 130 - cam.x * 0.4) % 780 + 780) % 780 - 40; c.beginPath(); c.arc(x, 40, 4, 0, 7); c.fill(); } }
+  const L = LVLS[li]; artBg(c, t, li);
   P.eachVisible(w, cam, VW, VH, (ch, x, y, tx, ty) => drawTile(c, ch, x, y, tx, ty, t));
   for (const e of ents) if (e.x > cam.x - 30 && e.x < cam.x + VW + 30) drawEnt(c, e, Math.round(e.x - cam.x), Math.round(e.y - cam.y), t);
   for (const f of fx) { c.save(); c.translate(Math.round(f.x - cam.x) + 6, Math.round(f.y - cam.y) + 6); c.scale(1, -1); drawEnt(c, f, -6, -6, t); c.restore(); }
@@ -154,6 +152,13 @@ function draw(c, t) {
   if (msgT > 0) K.text(c, msg, VW / 2, 60, 15, '#fff');
 }
 title();
+const ART = [{ pal: A.PAL.jungle, sky: { top: '#1a5a7a', mid: '#5ab0a0', bottom: '#d0f0c0', sun: '#fff8c0', sunY: 40 }, layers: [{ factor: 0.12, base: 150, amp: 50, col: '#2a6a5a', edge: 'rgba(0,0,0,.2)', seed: 3, fog: 'rgba(200,255,220,.3)' }, { t: 'trees', factor: 0.3, base: 190, col: '#1a5a3a', hi: '#2a7a4a', kind: 'round', spacing: 22, size: 1.4, ground: true }, { t: 'trees', factor: 0.5, base: 212, col: '#0e3a22', kind: 'palm', spacing: 40, size: 1.2 }], amb: "leaf", vig: .3 }, { pal: A.PAL.earth, sky: { top: '#3a2a6a', mid: '#ff8a5a', bottom: '#ffd88a', sun: '#ffe8a0', sunY: 80, sunR: 18 }, layers: [{ factor: 0.12, base: 160, amp: 50, col: "#c87a5a", edge: "rgba(0,0,0,.2)", seed: 2, fog: "rgba(255,220,180,.25)" }, { t: "trees", factor: 0.3, base: 200, col: "#6a3a2a", hi: "#8a4a3a", kind: "round", spacing: 30, size: 1.5, ground: true }], amb: "leaf", vig: .25 }, { pal: A.PAL.cave, sky: { top: '#06060f', mid: '#10102a', bottom: '#1a1a3a', clouds: false }, layers: [{ factor: 0.15, base: 150, amp: 70, col: '#18183a', edge: 'rgba(120,140,255,.25)', seed: 7 }, { factor: 0.3, base: 200, amp: 50, col: '#10102a', edge: 'rgba(120,140,255,.3)', seed: 3 }], amb: "dust", vig: .5 }, { pal: Object.assign({}, A.PAL.stone, { base: "#6a6a4a", hi: "#8a8a62", lo: "#44442e", mortar: "#1e1e12", grass: "#5a9a3a", grassHi: "#8ac85a", grassLo: "#3a6a22" }), sky: { top: "#2a3a1a", mid: "#6a7a3a", bottom: "#c8c88a", sun: "#fff0a0", sunY: 40 }, layers: [{ factor: 0.12, base: 150, amp: 60, col: "#4a5a2a", mesa: true, edge: "rgba(0,0,0,.3)", seed: 7, fog: "rgba(220,230,180,.25)" }, { t: "trees", factor: 0.35, base: 205, col: "#2a3a1a", kind: "palm", spacing: 36, size: 1.2 }], amb: "leaf", vig: .35 }];
+
+function artBg(c, t, i) { const L = ART[i] || ART[0]; A.sky(c, VW, VH, L.sky, t); c.save(); c.translate(0, Math.round(-cam.y * 0.9)); (L.layers || []).forEach(o => o.t === 'trees' ? A.trees(c, cam.x, o) : A.ridge(c, cam.x, o)); c.restore(); if (L.glow) A.glow(c, VW / 2, VH, 220, L.glow, 0.25); }
+function artTile(c, ch, x, y, tx, ty, i, set, pal) { const sol = (a, b) => a < 0 || a >= w.cols || b >= w.rows || (b >= 0 && set.indexOf(w.g[b][a]) >= 0); A.tile(c, ch + i, x, y, A.edges(sol, tx, ty), tx, ty, pal); }
+drawLemur = A.ink(drawLemur);
+drawEnt = A.ink(drawEnt);
+{ const _draw = draw; draw = function (c, t) { _draw(c, t); if (w) { const L = ART[li] || ART[0]; A.ambient(c, VW, VH, t, L.amb, 16); A.vignette(c, VW, VH, L.vig == null ? 0.3 : L.vig); } }; }
 K.run(update, draw);
 </script>
 </body>
