@@ -13,6 +13,8 @@
 // Shadow Strike: a ninja rescue mission. Throw stars, slash up close, free every hostage, and save your ninja magic for a crowd.
 K.theme({ bg: '#0a0a14', ink: '#f0f0ff', accent: '#ff3a4a', accentInk: '#fff' });
 const VW = 256, VH = 192, T = 16;
+// 2.5D: play stays side-to-side, but the world is drawn 1.6x bigger with 3D blocks and buildings that recede into the distance
+const Z = 1.6, ZW = VW / Z, ZH = VH / Z, DEPTH = 0.8;
 K.screen(VW, VH);
 K.hud(['score', 'hostages', 'lives']);
 K.pad({ dpad: '4', buttons: [{ id: 'c', label: 'MAGIC' }, { id: 'b', label: 'STAR' }, { id: 'a', label: 'JUMP' }] });
@@ -69,16 +71,17 @@ function update(dt) {
     if (near) { slashT = 0.18; K.beep(900, 0.06, { to: 200 }); if (near.k === 'boss') { if (near.inv <= 0) { near.hp -= 2; near.inv = 0.3; if (near.hp <= 0) kill(near); } } else kill(near); }
     else if (stars.length < 3) { stars.push({ x: p.x + 5, y: p.y + 6, vx: p.face * 260 }); K.beep(1400, 0.04, { to: 800 }); }
   }
-  if (K.hit('c') && magic > 0) { magic = 0; K.noise(1, 0.5); K.tune([200, 300, 450, 700], 0.08, { type: 'sawtooth' }); fx.push({ magic: 1, t: 1 }); foes.forEach(f => { if (f.alive && f.k !== 'host' && f.x > cam.x - 10 && f.x < cam.x + VW + 10) { if (f.k === 'boss') f.hp -= 5; else kill(f); } }); if (boss && boss.hp <= 0 && boss.alive) kill(boss); }
+  if (K.hit('c') && magic > 0) { magic = 0; K.noise(1, 0.5); K.tune([200, 300, 450, 700], 0.08, { type: 'sawtooth' }); fx.push({ magic: 1, t: 1 }); foes.forEach(f => { if (f.alive && f.k !== 'host' && f.x > cam.x - 10 && f.x < cam.x + ZW + 10) { if (f.k === 'boss') f.hp -= 5; else kill(f); } }); if (boss && boss.hp <= 0 && boss.alive) kill(boss); }
   stars.forEach(s => { s.x += s.vx * dt; if (P.isSolid(P.tile(w, s.x, s.y))) s.dead = true;
     for (const f of foes) { if (!f.alive || f.k === 'host') continue; if (s.x > f.x - 2 && s.x < f.x + f.w + 2 && s.y > f.y && s.y < f.y + f.h) { s.dead = true;
       if (f.k === 'shield' && Math.sign(s.vx) === -Math.sign(f.vx || 1)) { K.beep(2000, 0.03); fx.push({ x: s.x, y: s.y, vx: -s.vx * 0.2, vy: -60, t: 0.3, c: '#ccc' }); }
       else if (f.k === 'boss') { if (f.inv <= 0) { f.hp--; f.inv = 0.2; K.beep(300, 0.05); if (f.hp <= 0) kill(f); } } else kill(f); break; } } });
   stars = stars.filter(s => !s.dead && Math.abs(s.x - p.x) < 340);
   foes.forEach(f => { if (!f.alive) return;
-    if (f.k === 'host') { if (P.overlap(p, f)) { f.alive = false; saved++; score += 500; K.tune([660, 880, 1100], 0.06); msg = 'HOSTAGE FREED'; msgT = 1; } return; }
-    if (f.x < cam.x - 60 || f.x > cam.x + VW + 60) return;
+    if (f.k === 'host') { if (P.overlap(p, f)) { f.alive = false; f.freed = 1; saved++; score += 500; K.tune([660, 880, 1100], 0.06); msg = 'HOSTAGE FREED'; msgT = 1; } return; }
+    if (f.x < cam.x - 60 || f.x > cam.x + ZW + 60) return;
     if (f.k === 'guard' || f.k === 'shield') { if (f.k === 'guard' && Math.abs(f.x - p.x) < 120 && Math.abs(f.y - p.y) < 20) f.vx = Math.sign(p.x - f.x) * 40; P.stepWalker(w, f, dt); }
+    f.anim = (f.anim || 0) + dt;
     if (f.k === 'gun') { f.vy = Math.min(300, f.vy + 800 * dt); P.move(w, f, dt); f.cd -= dt; if (f.cd <= 0 && Math.abs(f.x - p.x) < 220) { f.cd = K.rnd(1.8, 3); eshots.push({ x: f.x + 5, y: f.y + 6, vx: Math.sign(p.x - f.x) * 120, vy: 0 }); K.beep(600, 0.04); } }
     if (f.k === 'ninja') { f.vy = Math.min(300, f.vy + 800 * dt); P.move(w, f, dt); f.cd -= dt; if (f.ground) f.vx = 0; if (f.cd <= 0 && f.ground && Math.abs(f.x - p.x) < 160) { f.vy = -300; f.vx = Math.sign(p.x - f.x) * 90; f.cd = K.rnd(1.2, 2); } }
     if (f.k === 'boss') { if (f.inv > 0) f.inv -= dt; f.vy = Math.min(300, f.vy + 800 * dt); P.move(w, f, dt); f.cd -= dt; if (f.ground) f.vx *= 0.9;
@@ -94,40 +97,137 @@ function update(dt) {
   if (cleared) { score += 2000 + magic * 1000; K.tune([523, 659, 784, 1046], 0.12); si++;
     if (si >= STAGES.length) { state = 'over'; best = K.saveBest('shadowstrike', score + lives * 1000); K.card({ title: 'MISSION COMPLETE', text: 'Every hostage is safe. Final score ' + (score + lives * 1000) + '.', best: 'BEST ' + best, button: 'Again', onStart: newGame }); return; }
     load(); }
-  cam = P.cam(w, p, cam, VW, VH);
+  cam = P.cam(w, p, cam, ZW, ZH);
   K.set('score', score); K.set('hostages', '☺ ' + saved + '/' + hostages + (magic ? ' ✦' : '')); K.set('lives', '♥'.repeat(Math.max(0, lives)));
 }
-function ninja(c, x, y, face, t, col, slash) {
-  const step = Math.sin(t / 60) * 2;
-  c.fillStyle = col; c.fillRect(x + 2, y + 4, 7, 9); c.fillRect(x + 2 + step * 0.5, y + 12, 3, 6); c.fillRect(x + 6 - step * 0.5, y + 12, 3, 6);
-  c.fillRect(x + 2, y - 2, 7, 7); c.fillStyle = '#e0b088'; c.fillRect(x + (face > 0 ? 5 : 2), y + 1, 4, 2);
-  c.fillStyle = '#ff3a4a'; c.fillRect(face > 0 ? x - 2 : x + 9, y, 4, 2);
-  if (slash) { c.strokeStyle = '#fff'; c.lineWidth = 2; c.beginPath(); c.arc(x + 5 + face * 6, y + 6, 14, face > 0 ? -1.2 : 1.9, face > 0 ? 1.2 : 4.3); c.stroke(); c.lineWidth = 1; }
+// ---- characters, drawn 1.25x their hit boxes with shading ----
+const OUTFIT = { me: ['#1a1a3a', '#2a2a5a', '#ff3a4a'], guard: ['#6a4a3a', '#8a6248', '#c8a050'], gun: ['#3a5a3a', '#4e7a4e', '#c8a050'], shield: ['#4a4a6a', '#6a6a8e', '#9aa0b0'], ninja: ['#1e1e22', '#34343a', '#7a2a2a'] };
+function ninja(c, x, y, face, t, kind, slash, moving, air) {
+  const o = OUTFIT[kind] || OUTFIT.me, st = moving ? Math.sin(t / 60) : 0;
+  c.save(); c.translate(x + 5, y + 18); c.scale(1.25 * face, 1.25);
+  c.fillStyle = 'rgba(0,0,0,.3)'; c.beginPath(); c.ellipse(0, 0, 5, 1.2, 0, 0, 7); c.fill();
+  const limb = (px, py, len, ang, wd, col) => { c.save(); c.translate(px, py); c.rotate(ang); c.fillStyle = col; c.beginPath(); c.roundRect(-wd / 2, 0, wd, len, wd / 2); c.fill(); c.restore(); };
+  // back leg, back arm
+  limb(-0.8, -7, 7, air ? 0.7 : -st * 0.7, 2.6, o[0]); limb(-1.6, -13, 5.5, air ? -2 : 0.4 + st * 0.6, 2.2, o[0]);
+  // sword on the back
+  if (kind === 'me' || kind === 'ninja') { c.save(); c.translate(-2, -12); c.rotate(-0.9); c.fillStyle = '#3a2a1a'; c.fillRect(-0.6, -1, 1.2, 4); c.fillStyle = '#c8ccd8'; c.fillRect(-0.4, -9, 0.8, 8); c.fillStyle = '#c8a050'; c.fillRect(-1.4, -1.4, 2.8, 0.8); c.restore(); }
+  // body with sash
+  const g = c.createLinearGradient(-3, -15, 3, -7); g.addColorStop(0, o[1]); g.addColorStop(1, o[0]); c.fillStyle = g; c.beginPath(); c.roundRect(-3.2, -15, 6.4, 8.5, 1.8); c.fill();
+  c.fillStyle = o[2]; c.fillRect(-3.2, -9, 6.4, 1.6); if (kind === 'me') { c.beginPath(); c.moveTo(-3, -8.6); c.lineTo(-6 - Math.abs(st) * 2, -6.5 + Math.sin(t / 90)); c.lineTo(-5.6, -5.4); c.lineTo(-3, -7.6); c.fill(); }
+  c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 0.5; c.beginPath(); c.moveTo(-1, -15); c.lineTo(1.5, -9.2); c.stroke();
+  // front leg with wrapped shin
+  limb(1, -7, 7, air ? -0.4 : st * 0.7, 2.8, o[1]); c.save(); c.translate(1, -7); c.rotate(air ? -0.4 : st * 0.7); c.fillStyle = 'rgba(255,255,255,.18)'; c.fillRect(-1.4, 3, 2.8, 0.6); c.fillRect(-1.4, 4.6, 2.8, 0.6); c.fillStyle = '#111'; c.fillRect(-1.6, 6, 3.6, 1.3); c.restore();
+  // head: hood with an eye slit and a headband tail
+  c.fillStyle = o[1]; c.beginPath(); c.arc(0.6, -17.6, 3, 0, 7); c.fill();
+  c.fillStyle = '#e0b088'; c.beginPath(); c.roundRect(0.4, -18.6, 3.4, 1.8, 0.8); c.fill(); c.fillStyle = '#111'; c.fillRect(2.2, -18.2, 0.9, 0.9); c.fillStyle = '#fff'; c.fillRect(2.4, -18.2, 0.3, 0.3);
+  c.fillStyle = o[2]; c.fillRect(-2.4, -20, 5.8, 1.1); if (kind === 'me') { c.beginPath(); c.moveTo(-2.4, -19.8); c.lineTo(-6.5 - Math.abs(st) * 2, -21 + Math.sin(t / 70) * 1.2); c.lineTo(-6, -19.4 + Math.sin(t / 70)); c.lineTo(-2.4, -18.9); c.fill(); }
+  // front arm, holding a star or slashing
+  if (slash) { limb(1.6, -13, 5.5, -1.7, 2.3, o[1]); c.save(); c.translate(7, -12.5); c.rotate(-0.4); c.fillStyle = '#e8ecf4'; c.fillRect(0, -0.6, 11, 1.2); c.restore(); }
+  else limb(1.6, -13, 5.5, air ? -2.4 : -0.3 - st * 0.6, 2.3, o[1]);
+  if (kind === 'gun') { c.fillStyle = '#222'; c.fillRect(2.5, -11, 8, 1.8); c.fillStyle = '#5a3a1a'; c.fillRect(1, -10.6, 2.5, 2.2); }
+  if (kind === 'guard') { c.strokeStyle = '#8a5a2a'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(-1, -2); c.lineTo(6, -22); c.stroke(); }
+  if (kind === 'shield') { const sg = c.createLinearGradient(4, -18, 8, 0); sg.addColorStop(0, '#d0d6e4'); sg.addColorStop(1, '#6a7080'); c.fillStyle = sg; c.beginPath(); c.roundRect(3.6, -18, 4.2, 16, 1.6); c.fill(); c.fillStyle = '#c8a050'; c.beginPath(); c.arc(5.7, -10, 1.2, 0, 7); c.fill(); }
+  c.restore();
+  if (slash) { c.strokeStyle = 'rgba(255,255,255,.9)'; c.lineWidth = 1.6; c.beginPath(); c.arc(x + 5 + face * 7, y + 6, 15, face > 0 ? -1.3 : 1.85, face > 0 ? 1.3 : 4.45); c.stroke(); c.strokeStyle = 'rgba(160,200,255,.5)'; c.lineWidth = 3; c.beginPath(); c.arc(x + 5 + face * 7, y + 6, 13, face > 0 ? -1 : 2.1, face > 0 ? 1 : 4.2); c.stroke(); }
 }
-function draw(c, t) {
-  const S = STAGES[si] || STAGES[0];
-  const L = ART[si] || ART[0]; A.sky(c, VW, VH, L.sky, t);
-  c.save(); c.translate(0, Math.round(-(cam ? cam.y : 0) * 0.9)); L.layers.forEach(o => o.t === 'trees' ? A.trees(c, cam ? cam.x : 0, o) : o.t === 'city' ? city(c, cam ? cam.x : 0, o) : A.ridge(c, cam ? cam.x : 0, o)); c.restore();
-  if (!w) return;
-  const cx = Math.round(cam.x), cy = Math.round(cam.y);
-  P.eachVisible(w, cam, VW, VH, (ch, x, y, tx, ty) => {
+function drawHostage(c, x, y, t) {
+  c.save(); c.translate(x + 6, y + 12); c.scale(1.25, 1.25);
+  c.fillStyle = 'rgba(0,0,0,.3)'; c.beginPath(); c.ellipse(0, 0, 5, 1.2, 0, 0, 7); c.fill();
+  c.fillStyle = '#3a4a8a'; c.beginPath(); c.roundRect(-4, -3, 8, 3, 1.2); c.fill();
+  c.fillStyle = '#ffd23a'; c.beginPath(); c.roundRect(-3, -10, 6, 7.5, 1.6); c.fill();
+  c.strokeStyle = '#8a6a3a'; c.lineWidth = 0.9; c.beginPath(); c.moveTo(-3, -6); c.lineTo(3, -5); c.moveTo(-3, -4.5); c.lineTo(3, -7); c.stroke();
+  c.fillStyle = '#e0b088'; c.beginPath(); c.arc(0, -12.6, 2.6, 0, 7); c.fill(); c.fillStyle = '#4a2a1a'; c.beginPath(); c.arc(0, -13.4, 2.6, Math.PI, 0); c.fill();
+  c.fillStyle = '#fff'; c.fillRect(-2.6, -12.8, 5.2, 1.2); c.fillStyle = '#111'; c.fillRect(-1.2, -11.6, 0.7, 0.7); c.fillRect(0.6, -11.6, 0.7, 0.7);
+  c.restore();
+  if (Math.floor(t / 300) % 2) K.text(c, 'HELP!', x + 6, y - 14, 6, '#fff');
+}
+function drawBoss(c, f, t) {
+  const x = f.x, y = f.y, face = p.x > f.x ? 1 : -1;
+  c.save(); c.translate(x + 11, y + 34); c.scale(face * 1.15, 1.15);
+  c.fillStyle = 'rgba(0,0,0,.35)'; c.beginPath(); c.ellipse(0, 0, 12, 2, 0, 0, 7); c.fill();
+  c.fillStyle = '#1e1e22'; c.beginPath(); c.roundRect(-8, -12, 6, 12, 2); c.roundRect(2, -12, 6, 12, 2); c.fill();
+  let g = c.createLinearGradient(-10, -30, 10, -10); g.addColorStop(0, '#b02a2a'); g.addColorStop(1, '#5a0e0e'); c.fillStyle = g; c.beginPath(); c.roundRect(-10, -29, 20, 18, 3); c.fill();
+  c.fillStyle = '#c8a050'; for (let k = 0; k < 4; k++) c.fillRect(-9, -27 + k * 4, 18, 1);
+  c.fillStyle = '#7a1a1a'; c.beginPath(); c.roundRect(-14, -30, 7, 6, 2); c.roundRect(7, -30, 7, 6, 2); c.fill();
+  c.fillStyle = '#e0b088'; c.beginPath(); c.arc(0, -33, 4.5, 0, 7); c.fill(); c.fillStyle = '#2a0a0a'; c.fillRect(-3, -32, 7, 2.2); c.fillStyle = '#ff3a4a'; c.fillRect(1.5, -33.8, 2, 1);
+  c.fillStyle = '#2a2a2a'; c.beginPath(); c.ellipse(0, -36, 6.5, 3.5, 0, Math.PI, 0); c.fill(); c.fillStyle = '#ffd23a'; c.beginPath(); c.moveTo(-6, -37); c.quadraticCurveTo(-12, -44, -8, -48); c.quadraticCurveTo(-7, -42, -3, -39); c.moveTo(6, -37); c.quadraticCurveTo(12, -44, 8, -48); c.quadraticCurveTo(7, -42, 3, -39); c.fill();
+  c.save(); c.translate(8, -22); c.rotate(-0.5 + Math.sin(t / 300) * 0.15); c.fillStyle = '#3a2a1a'; c.fillRect(-1, -2, 2, 6); c.fillStyle = '#e8ecf4'; c.fillRect(-0.9, -22, 1.8, 20); c.fillStyle = '#c8a050'; c.fillRect(-3, -2.5, 6, 1.2); c.restore();
+  c.restore();
+}
+// ---- 2.5D world: perspective from a vanishing point in the middle of the view ----
+let VP = { x: 0, y: 0 };
+function proj(x, y, s) { return { x: VP.x + (x - VP.x) * s, y: VP.y + (y - VP.y) * s }; }
+function fog(hex, k) { return hex; }
+// buildings, cranes, pagodas and trees standing at different depths behind the level
+function depthProps(c, t) {
+  const gy = (w.rows - 2) * T, S = si;
+  const layers = S === 0 ? [{ s: 0.45, col: '#151a34', win: 'rgba(255,220,140,.45)' }, { s: 0.62, col: '#1e2444', win: 'rgba(255,220,140,.55)' }] : S === 1 ? [{ s: 0.42, col: '#3a1e34', win: 'rgba(255,210,140,.55)' }, { s: 0.6, col: '#2a1424', win: 'rgba(255,210,140,.6)' }] : [{ s: 0.45, col: '#1e0808', win: 'rgba(255,90,40,.5)' }, { s: 0.62, col: '#140404', win: 'rgba(255,90,40,.6)' }];
+  layers.forEach((L, li2) => {
+    const sp = 70 + li2 * 20, x0 = Math.floor((cam.x - 200) / sp), x1 = Math.ceil((cam.x + ZW + 200) / sp);
+    for (let i = x0; i <= x1; i++) {
+      const h = A.hash(i, li2 + S * 7, 2), bx = i * sp + h * 20, bw = 34 + h * 26, bh = 50 + A.hash(i, li2, 5) * 90;
+      const a = proj(bx, gy, L.s), b = proj(bx + bw, gy - bh, L.s), side = proj(bx + bw, gy, L.s * 0.94), side2 = proj(bx + bw, gy - bh, L.s * 0.94);
+      if (b.x < cam.x - 20 || a.x > cam.x + ZW + 20) continue;
+      if (S === 2 && A.hash(i, li2, 9) < 0.5) { // pagoda: stacked roofs
+        const tiers = 3 + (A.hash(i, 3) * 2 | 0); for (let k = 0; k < tiers; k++) { const ty = gy - k * bh / tiers, w0 = bw * (1 - k * 0.15), cx = bx + bw / 2, q0 = proj(cx - w0 * 0.35, ty, L.s), q1 = proj(cx + w0 * 0.35, ty - bh / tiers * 0.7, L.s), r0 = proj(cx - w0 * 0.6, ty - bh / tiers * 0.7, L.s), r1 = proj(cx + w0 * 0.6, ty - bh / tiers * 0.7, L.s), rt = proj(cx, ty - bh / tiers, L.s); c.fillStyle = L.col; c.fillRect(q0.x, q1.y, q1.x - q0.x, q0.y - q1.y); c.fillStyle = L.win; c.fillRect(q0.x + (q1.x - q0.x) * 0.4, q1.y + (q0.y - q1.y) * 0.3, (q1.x - q0.x) * 0.2, (q0.y - q1.y) * 0.5); c.fillStyle = L.col; c.beginPath(); c.moveTo(r0.x - 2, r0.y + 1); c.quadraticCurveTo(rt.x, r0.y - 1, rt.x, rt.y); c.quadraticCurveTo(rt.x, r1.y - 1, r1.x + 2, r1.y + 1); c.fill(); }
+        continue;
+      }
+      c.fillStyle = shadeHex(L.col, -0.35); c.beginPath(); c.moveTo(b.x, a.y); c.lineTo(side.x, side.y); c.lineTo(side2.x, side2.y); c.lineTo(b.x, b.y); c.fill();
+      c.fillStyle = L.col; c.fillRect(a.x, b.y, b.x - a.x, a.y - b.y);
+      if (S === 0 && A.hash(i, li2, 4) < 0.3) { const cm = proj(bx + bw * 0.5, gy - bh - 40, L.s), arm = proj(bx + bw * 0.5 + 60, gy - bh - 40, L.s); c.strokeStyle = L.col; c.lineWidth = 2 * L.s; c.beginPath(); c.moveTo(cm.x, b.y); c.lineTo(cm.x, cm.y); c.lineTo(arm.x, arm.y); c.stroke(); c.lineWidth = 0.5; c.beginPath(); c.moveTo(arm.x - 5, arm.y); c.lineTo(arm.x - 5, arm.y + 20 * L.s + Math.sin(t / 900 + i) * 2); c.stroke(); }
+      const ww = (b.x - a.x), wh = (a.y - b.y); c.fillStyle = L.win;
+      for (let wy = 0; wy < 8; wy++) for (let wx = 0; wx < 4; wx++) if (A.hash(i * 7 + wx, wy, li2 + 11) < 0.38) c.fillRect(a.x + ww * (0.12 + wx * 0.21), b.y + wh * (0.08 + wy * 0.11), ww * 0.1, wh * 0.05);
+      if (S === 1 && A.hash(i, li2, 6) < 0.4) { const tt = proj(bx + bw * 0.3, gy - bh, L.s), tw = proj(bx + bw * 0.3 + 12, gy - bh - 16, L.s); c.fillStyle = L.col; c.fillRect(tt.x, tw.y, tw.x - tt.x, tt.y - tw.y); c.beginPath(); c.moveTo(tt.x - 1, tw.y); c.lineTo((tt.x + tw.x) / 2, tw.y - 4 * L.s); c.lineTo(tw.x + 1, tw.y); c.fill(); }
+    }
+  });
+}
+function shadeHex(hex, k) { const n = parseInt(hex.slice(1), 16); let r = n >> 16, g = (n >> 8) & 255, b = n & 255; if (k < 0) { r *= 1 + k; g *= 1 + k; b *= 1 + k; } else { r += (255 - r) * k; g += (255 - g) * k; b += (255 - b) * k; } return 'rgb(' + (r | 0) + ',' + (g | 0) + ',' + (b | 0) + ')'; }
+// solid tiles become 3D blocks: their back face sits deeper, and the top/sides that face you are filled in
+function blocks(c, L, t) {
+  const x0 = Math.max(0, Math.floor(cam.x / T) - 2), x1 = Math.min(w.cols - 1, Math.ceil((cam.x + ZW) / T) + 2), y0 = Math.max(0, Math.floor(cam.y / T) - 1), y1 = Math.min(w.rows - 1, Math.ceil((cam.y + ZH) / T) + 1);
+  const solid = (tx, ty) => tx >= 0 && tx < w.cols && ty >= 0 && ty < w.rows && 'H#'.includes(w.g[ty][tx]);
+  const quad = (a, b, cc, d, col) => { c.fillStyle = col; c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.lineTo(cc.x, cc.y); c.lineTo(d.x, d.y); c.fill(); };
+  const top = L.pal.base;
+  for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
+    const ch = w.g[ty][tx]; if (ch === '.' || ch === 'E') continue;
+    const X = tx * T, Y = ty * T, oneway = ch === '=', H2 = oneway ? 5 : T;
+    if (!oneway && !solid(tx, ty)) continue;
+    const f0 = { x: X, y: Y }, f1 = { x: X + T, y: Y }, f2 = { x: X + T, y: Y + H2 }, f3 = { x: X, y: Y + H2 }, b0 = proj(X, Y, DEPTH), b1 = proj(X + T, Y, DEPTH), b2 = proj(X + T, Y + H2, DEPTH), b3 = proj(X, Y + H2, DEPTH);
+    const base = ch === 'H' ? '#8a6a3a' : oneway ? '#7a5a3a' : top;
+    if (Y > VP.y && (oneway || !solid(tx, ty - 1))) quad(f0, f1, b1, b0, shadeHex(base, 0.25));
+    if (Y + H2 < VP.y && (oneway || !solid(tx, ty + 1))) quad(f3, f2, b2, b3, shadeHex(base, -0.5));
+    if (X > VP.x && (oneway || !solid(tx - 1, ty))) quad(f0, f3, b3, b0, shadeHex(base, -0.35));
+    if (X + T < VP.x && (oneway || !solid(tx + 1, ty))) quad(f1, f2, b2, b1, shadeHex(base, -0.35));
+  }
+  // front faces on top
+  P.eachVisible(w, cam, ZW, ZH, (ch, x, y, tx, ty) => {
+    x += cam.x; y += cam.y;
     if (ch === '#') artTile(c, '#', x, y, tx, ty, si, '#', L.pal);
     else if (ch === 'H') artTile(c, 'H', x, y, tx, ty, 0, 'H', A.PAL.wood);
-    else if (ch === '=') { A.ledge(c, x, y, T, A.PAL.wood); c.fillStyle = A.INK; c.fillRect(x + 6.5, y + 6, 3, 10); c.fillStyle = '#6a4a2a'; c.fillRect(x + 7, y + 6, 2, 10); }
+    else if (ch === '=') { A.ledge(c, x, y, T, A.PAL.wood); }
     else if (ch === 'E') { A.part(c, x + 1, y, T - 2, T, '#5a3a1a'); c.fillStyle = '#3a2410'; c.fillRect(x + 3, y + 2, T - 6, T - 2); c.fillStyle = '#ffd23a'; c.fillRect(x + 10, y + 7, 2, 2); A.glow(c, x + 8, y + 2, 12, '255,200,80', 0.25); }
   });
-  foes.forEach(f => { if (!f.alive) return; const x = Math.round(f.x) - cx, y = Math.round(f.y) - cy; if (x < -40 || x > VW + 40) return;
-    if (f.k === 'host') { c.fillStyle = '#ffd23a'; c.fillRect(x + 2, y + 2, 8, 8); c.fillStyle = '#e0b088'; c.fillRect(x + 3, y - 3, 6, 5); if (Math.floor(t / 300) % 2) K.text(c, 'HELP', x + 6, y - 10, 6, '#fff'); return; }
-    if (f.k === 'boss') { if (f.inv > 0 && Math.floor(t / 50) % 2) return; c.fillStyle = '#8a1a1a'; c.fillRect(x, y + 8, 22, 18); c.fillStyle = '#2a2a2a'; c.fillRect(x + 2, y + 26, 7, 8); c.fillRect(x + 13, y + 26, 7, 8); c.fillStyle = '#e0b088'; c.fillRect(x + 6, y, 10, 9); c.fillStyle = '#ffd23a'; c.fillRect(x + 2, y - 4, 18, 4); c.fillStyle = '#ddd'; c.fillRect(x + (p.x > f.x ? 20 : -14), y + 12, 16, 2);
-      c.fillStyle = 'rgba(0,0,0,.5)'; c.fillRect(VW - 110, 8, 102, 7); c.fillStyle = '#ff3a4a'; c.fillRect(VW - 109, 9, 100 * f.hp / 16, 5); return; }
+}
+function draw(c, t) {
+  const L = ART[si] || ART[0]; A.sky(c, VW, VH, L.sky, t);
+  c.save(); c.translate(0, Math.round(-(cam ? cam.y - (w ? w.py - ZH : 0) : 0) * 0.3)); L.layers.forEach(o => o.t === 'trees' ? A.trees(c, cam ? cam.x * 0.6 : 0, o) : o.t === 'city' ? city(c, cam ? cam.x * 0.6 : 0, o) : A.ridge(c, cam ? cam.x * 0.6 : 0, o)); c.restore();
+  if (!w) return;
+  VP = { x: cam.x + ZW / 2, y: cam.y + ZH * 0.42 };
+  c.save(); c.scale(Z, Z); c.translate(-cam.x, -cam.y);
+  depthProps(c, t);
+  blocks(c, L, t);
+  foes.forEach(f => { if (!f.alive) return; if (f.x < cam.x - 40 || f.x > cam.x + ZW + 40) return;
+    if (f.k === 'host') return drawHostage(c, f.x, f.y, t);
+    if (f.k === 'boss') { if (f.inv > 0 && Math.floor(t / 50) % 2) return; return drawBoss(c, f, t); }
     const face = f.k === 'gun' || f.k === 'ninja' ? Math.sign(p.x - f.x) || 1 : Math.sign(f.vx) || -1;
-    ninja(c, x, y, face, t + f.x, f.k === 'ninja' ? '#2a2a2a' : f.k === 'gun' ? '#3a5a3a' : f.k === 'shield' ? '#5a5a7a' : '#6a4a3a', false);
-    if (f.k === 'shield') { c.fillStyle = '#9aa0b0'; c.fillRect(face > 0 ? x + 9 : x - 3, y, 4, 16); }
-    if (f.k === 'gun') { c.fillStyle = '#222'; c.fillRect(face > 0 ? x + 9 : x - 7, y + 5, 8, 2); } });
-  if (deadT <= 0 && !(p.inv > 0 && Math.floor(t / 80) % 2) && state !== 'title') ninja(c, Math.round(p.x) - cx, Math.round(p.y) - cy, p.face, p.vx ? t : 0, '#1a1a3a', slashT > 0);
-  c.fillStyle = '#ddd'; stars.forEach(s => { const x = s.x - cx, y = s.y - cy; c.save(); c.translate(x, y); c.rotate(t / 40); c.fillRect(-4, -1, 8, 2); c.fillRect(-1, -4, 2, 8); c.restore(); });
-  eshots.forEach(s => { c.fillStyle = s.fire ? '#ff8a2a' : '#ffec6a'; c.fillRect(s.x - cx - 2, s.y - cy - 1, s.fire ? 6 : 4, s.fire ? 4 : 2); });
-  fx.forEach(e => { if (e.magic) { c.fillStyle = 'rgba(255,60,80,' + e.t * 0.6 + ')'; c.fillRect(0, 0, VW, VH); } else { c.fillStyle = e.c; c.fillRect(e.x - cx, e.y - cy, 2, 2); } });
+    ninja(c, f.x, f.y, face, t + f.x * 7, f.k, false, f.k === 'guard' || f.k === 'shield' || (f.k === 'ninja' && !f.ground), f.k === 'ninja' && !f.ground); });
+  if (deadT <= 0 && !(p.inv > 0 && Math.floor(t / 80) % 2) && state !== 'title') ninja(c, p.x, p.y, p.face, t, 'me', slashT > 0, p.ground && Math.abs(p.vx) > 5, !p.ground);
+  stars.forEach(s => { c.save(); c.translate(s.x, s.y); c.rotate(t / 40); c.fillStyle = '#e8ecf4'; for (let k = 0; k < 4; k++) { c.rotate(Math.PI / 2); c.beginPath(); c.moveTo(0, -1); c.lineTo(5, 0); c.lineTo(0, 1); c.fill(); } c.fillStyle = '#5a5e6a'; c.beginPath(); c.arc(0, 0, 1, 0, 7); c.fill(); c.restore(); });
+  eshots.forEach(s => { if (s.fire) { A.glow(c, s.x, s.y, 8, '255,140,40', 0.6); c.fillStyle = '#ffd23a'; c.beginPath(); c.arc(s.x, s.y, 2.2, 0, 7); c.fill(); } else { c.fillStyle = '#ffec6a'; c.fillRect(s.x - 2.5, s.y - 0.6, 5, 1.2); } });
+  fx.forEach(e => { if (!e.magic) { c.fillStyle = e.c; c.fillRect(e.x - 1, e.y - 1, 2, 2); } });
+  c.restore();
+  fx.forEach(e => { if (e.magic) { c.fillStyle = 'rgba(255,60,80,' + e.t * 0.6 + ')'; c.fillRect(0, 0, VW, VH); } });
+  if (boss && boss.alive) { c.fillStyle = 'rgba(0,0,0,.5)'; c.fillRect(VW - 110, 8, 102, 7); c.fillStyle = '#ff3a4a'; c.fillRect(VW - 109, 9, 100 * Math.max(0, boss.hp) / 16, 5); }
   if (msgT > 0) K.text(c, msg, VW / 2, 40, 12, '#fff');
 }
 const ART = [
@@ -137,7 +237,7 @@ const ART = [
 ];
 function city(c, camX, o) { const off = camX * o.factor; for (let i = Math.floor(off / 34) - 1; i < Math.floor((off + VW) / 34) + 2; i++) { const x = i * 34 - off, h = 40 + A.hash(i, 3) * 70; c.fillStyle = o.col; c.fillRect(x, o.base - h, 30, h + 300); if (A.hash(i, 4) < 0.5) { c.beginPath(); c.moveTo(x - 4, o.base - h); c.lineTo(x + 15, o.base - h - 12); c.lineTo(x + 34, o.base - h); c.fill(); } c.fillStyle = 'rgba(255,220,120,.55)'; for (let k = 0; k < 6; k++) if (A.hash(i, k + 10) < 0.35) c.fillRect(x + 4 + (k % 3) * 8, o.base - h + 8 + Math.floor(k / 3) * 12, 3, 4); } }
 function artTile(c, ch, x, y, tx, ty, i, set, pal) { const sol = (a, b) => a < 0 || a >= w.cols || b >= w.rows || (b >= 0 && set.indexOf(w.g[b][a]) >= 0); A.tile(c, ch + i, x, y, A.edges(sol, tx, ty), tx, ty, pal); }
-ninja = A.ink(ninja);
+ninja = A.ink(ninja); drawBoss = A.ink(drawBoss); drawHostage = A.ink(drawHostage);
 { const _draw = draw; draw = function (c, t) { _draw(c, t); if (w) { A.ambient(c, VW, VH, t, si === 2 ? 'ember' : 'leaf', 14); A.vignette(c, VW, VH, 0.4); } }; }
 newGame(); state = 'title'; title(); K.run(update, draw);
 </script>
