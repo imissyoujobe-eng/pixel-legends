@@ -24,7 +24,7 @@ window.ARCADE_GAMES = [
   { id: 'diamond-dash', name: 'Diamond Dash', genre: 'Sports', tag: 'Pitch, swing and win in three innings' },
   { id: 'powder-peak', name: 'Powder Peak', genre: 'Sports', tag: 'Snowboard spins, grabs and rails' },
   { id: 'kickflip-city', name: 'Kickflip City', genre: 'Sports', tag: 'Street skate combos in 90 seconds' },
-  { id: 'barnyard-brigade', name: 'Barnyard Brigade', genre: 'Action', tag: 'Goats vs roosters squad battle' },
+  { id: 'barnyard-brigade', name: 'Barnyard Brigade', genre: 'Action', tag: '3D turn-based goats vs roosters' },
   { id: 'shadow-strike', name: "Shadow Strike", genre: 'Action', tag: "Ninja stars and hostage rescues" },
   { id: 'door-runner', name: "Door Runner", genre: 'Action', tag: "Secret agent, two floors, many doors" },
   { id: 'barbarian-blade', name: "Barbarian Blade", genre: 'Platform', tag: "Sword quest through lava realms" },
