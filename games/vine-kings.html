@@ -281,8 +281,7 @@ function spriteInk(fn, BW, BH, offX, offY, xi) {
     const m = c.getTransform(), k = Math.hypot(m.a, m.b) || 1, W = Math.ceil(BW * k), H = Math.ceil(BH * k), ox = x - offX, oy = y - offY;
     if (oc.width !== W || oc.height !== H) { oc.width = W; oc.height = H; } else { o.setTransform(1, 0, 0, 1, 0, 0); o.clearRect(0, 0, W, H); }
     o.setTransform(k, 0, 0, k, -ox * k, -oy * k); a[0] = o; fn.apply(null, a);
-    c.save(); try { c.filter = 'drop-shadow(0.7px 0 0 rgba(20,10,5,.95)) drop-shadow(-0.7px 0 0 rgba(20,10,5,.95)) drop-shadow(0 0.7px 0 rgba(20,10,5,.95)) drop-shadow(0 -0.7px 0 rgba(20,10,5,.95))'; } catch (e) { }
-    c.drawImage(oc, ox, oy, BW, BH); c.restore();
+    A.outlined(c, oc, ox, oy, BW, BH, 0.7);
   };
 }
 drawLemur = spriteInk(drawLemur, 72, 72, 32, 46, 1);
