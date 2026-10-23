@@ -10,20 +10,20 @@
 <script>
 // Agent Zero: a first-person spy mission. Sneak through three secret bases, grab the data disks and reach the exit pad.
 K.theme({ bg: '#0a0c10', ink: '#e8f0ff', accent: '#ffd23f', accentInk: '#2a1d00' });
-const W = 256, H = 176, VIEWH = 150;
+const W = 240, H = 330, VIEWH = 226; // tall portrait view: 3D view on top, instrument panel + big map below
 K.screen(W, H);
 K.hud(['mission', 'disks', 'ammo']);
 K.pad({ dpad: '4', buttons: [{ id: 'b', label: 'USE' }, { id: 'a', label: 'FIRE' }] });
 const MAPS = [["########################", "#P.....#.....#.....g..d#", "#......#.....#.........#", "#..a...D..g..D....###..#", "#......#.....#....#h#..#", "####D###.....#....#.#..#", "#......####D###...#D#..#", "#..g...#......#........#", "#......#..h...#..g.....#", "#......D......####D#####", "#..d...#..g...#........#", "#......#......#..a..g..#", "###D####......#........#", "#......########.....####", "#..g...........g....#..#", "#......#####........D.E#", "#..a...#...#........#..#", "#......#.d.D..g.....####", "#......#...#...........#", "########################"], ["########################", "#P....#........#......d#", "#.....#..g.....D..g....#", "#.....D........#.......#", "#.....#####D####.......#", "##D####.....#..####K####", "#.....#..a..#..#.......#", "#..g..#.....#..#..g..k.#", "#.....D..g..D..#.......#", "#.....#.....#..###D#####", "#.h...#######..........#", "####D##.d....#..g......#", "#.....#......D.....a...#", "#..g..#..g...#.........#", "#.....#......#####D#####", "#.....D......#.........#", "#.a...#......#..g....E.#", "#######......D.........#", "#.d..........#....h....#", "########################"], ["########################", "#P..#.....g.....#.....d#", "#...D...........D..g...#", "#...#..######...#......#", "##D##..#....#...####D###", "#......#.d..K...#......#", "#..g...#....#...#..g...#", "#......######...#..h...#", "#.a.......g.....D......#", "####D#####..#####.....##", "#........#..#...#...g..#", "#..g..k..#..D.a.#......#", "#........#..#...###D####", "#####D####..#..........#", "#........#..####..g....#", "#.h...g..D..#..#.......#", "#........#..#..D...E...#", "#..d.....#..#..#...g...#", "#........#.....#.......#", "########################"]];
 const BRIEFS = ['Mission 1: Harbor Warehouse. Recover 3 data disks, then reach the green exit pad.', 'Mission 2: Mountain Lab. A keycard opens the red security door. 3 disks, then exit.', 'Mission 3: Satellite Base. The final 3 disks are behind a locked vault. Then get out!'];
-let state = 'title', mi, g, pl, sprites, doors, shots, disks, ammo, hp, keycard, flash, hurtT, msg, msgT, gunT, zbuf = new Array(W), time, kills, best = K.best('agentzero');
-function title() { K.card({ title: 'AGENT ZERO', text: 'Move with ▲ ▼, turn with ◀ ▶. FIRE shoots, USE opens doors in front of you. Guards spot you if they can see you, so pick your moment. Collect 3 data disks per mission and reach the green exit pad.', best: best ? 'BEST TIME ' + Math.floor(best / 60) + ':' + String(best % 60).padStart(2, '0') : '', button: 'Accept mission', onStart: () => { mi = 0; time = 0; kills = 0; hp = 100; ammo = 40; load(); state = 'play'; } }); }
+let bigMap = false, state = 'title', mi, g, pl, sprites, doors, shots, disks, ammo, hp, keycard, flash, hurtT, msg, msgT, gunT, zbuf = new Array(W), time, kills, best = K.best('agentzero');
+function title() { K.card({ title: 'AGENT ZERO', text: 'Move with ▲ ▼, turn with ◀ ▶. FIRE shoots, USE opens doors in front of you. Tap the map for a big map. Guards spot you if they can see you, so pick your moment. Collect 3 data disks per mission and reach the green exit pad.', best: best ? 'BEST TIME ' + Math.floor(best / 60) + ':' + String(best % 60).padStart(2, '0') : '', button: 'Accept mission', onStart: () => { mi = 0; time = 0; kills = 0; hp = 100; ammo = 40; load(); state = 'play'; } }); }
 function load() {
   g = MAPS[mi].map(r => r.split('')); sprites = []; doors = {}; shots = []; disks = 0; keycard = false; flash = 0; hurtT = 0; gunT = 0;
   for (let y = 0; y < g.length; y++) for (let x = 0; x < g[0].length; x++) {
     const ch = g[y][x];
     if (ch === 'P') { pl = { x: x + 0.5, y: y + 0.5, a: 0 }; g[y][x] = '.'; }
-    if (ch === 'g') { sprites.push({ k: 'guard', x: x + 0.5, y: y + 0.5, hp: 3 + mi, st: 'idle', t: K.rnd(0.5, 2), a: Math.random() * 6.28, seen: 0 }); g[y][x] = '.'; }
+    if (ch === 'g') { sprites.push({ k: 'guard', v: K.ri(0, 4), skin: K.ri(0, 3), x: x + 0.5, y: y + 0.5, hp: 3 + mi, st: 'idle', t: K.rnd(0.5, 2), a: Math.random() * 6.28, seen: 0 }); g[y][x] = '.'; }
     if ('dahk'.includes(ch)) { sprites.push({ k: ch, x: x + 0.5, y: y + 0.5 }); g[y][x] = '.'; }
     if (ch === 'D' || ch === 'K') doors[x + ',' + y] = { open: 0, opening: false, locked: ch === 'K' };
   }
@@ -33,8 +33,12 @@ function hud() { K.set('mission', 'MISSION ' + (mi + 1) + ' ♥' + Math.max(0, M
 function cell(x, y) { const r = g[Math.floor(y)]; return r ? r[Math.floor(x)] || '#' : '#'; }
 function solidAt(x, y) { const ch = cell(x, y); if (ch === '#' || ch === 'E' && false) return true; if (ch === 'D' || ch === 'K') { const d = doors[Math.floor(x) + ',' + Math.floor(y)]; return !d || d.open < 0.9; } return false; }
 
+const MAPBOX = { x: W - 104, y: VIEWH + 6, w: 100, h: H - VIEWH - 10 };
 function update(dt) {
   if (state !== 'play') return;
+  // tap the minimap to open the full-screen map (the mission pauses while it is open); tap again to close
+  if (K.ptr.tapped) { const p = K.ptr; if (bigMap) { bigMap = false; K.beep(500, 0.05, { vol: 0.03 }); } else if (p.x >= MAPBOX.x - 4 && p.y >= MAPBOX.y - 4 && p.y <= H) { bigMap = true; K.beep(700, 0.05, { vol: 0.03 }); } }
+  if (bigMap) return;
   time += dt; if (msgT > 0) msgT -= dt; if (flash > 0) flash -= dt; if (hurtT > 0) hurtT -= dt; if (gunT > 0) gunT -= dt;
   const turn = (K.down('right') ? 1 : 0) - (K.down('left') ? 1 : 0), mv = (K.down('up') ? 1 : 0) - (K.down('down') ? 1 : 0);
   pl.a += turn * 2.6 * dt;
@@ -92,7 +96,7 @@ function los(x0, y0, x1, y1) { const d = Math.hypot(x1 - x0, y1 - y0), n = Math.
 function lose() { state = 'over'; K.tune([392, 330, 262, 196], 0.18, { type: 'sawtooth' }); K.card({ title: 'AGENT DOWN', text: 'You were caught on mission ' + (mi + 1) + '. Try a quieter approach.', best: best ? 'BEST TIME ' + Math.floor(best / 60) + ':' + String(best % 60).padStart(2, '0') : '', button: 'Retry mission', onStart: () => { hp = 100; ammo = Math.max(ammo, 30); load(); state = 'play'; } }); }
 function win() { state = 'over'; const t = Math.floor(time); best = K.saveBest('agentzero', t, true); K.card({ title: 'MISSION COMPLETE', text: 'All three bases cleared in ' + Math.floor(t / 60) + 'm ' + t % 60 + 's with ' + kills + ' guards down.', best: 'BEST TIME ' + Math.floor(best / 60) + ':' + String(best % 60).padStart(2, '0'), button: 'Play again', onStart: () => { mi = 0; time = 0; kills = 0; hp = 100; ammo = 40; load(); state = 'play'; } }); }
 
-const FOV = 1.05, WALLC = { '#': [90, 100, 120], D: [150, 110, 60], K: [190, 50, 60], E: [40, 200, 90] };
+const FOV = 1.15, PROJ = (W / 2) / Math.tan(FOV / 2), WALLC = { '#': [90, 100, 120], D: [150, 110, 60], K: [190, 50, 60], E: [40, 200, 90] };
 
 const TEXC = {};
 function wallTex(ch) {
@@ -117,6 +121,112 @@ function wallTex(ch) {
     g.fillStyle = 'rgba(40,30,20,.25)'; g.fillRect(10, 44, 3, 16); g.fillRect(14, 48, 2, 12);
   }
   return (TEXC[ch] = cv);
+}
+// ---- detailed guard sprite: drawn in a 100-unit-tall box (0 = top of head, 100 = boots), x centred on 0 ----
+const SKINS = [[226, 178, 140], [196, 140, 100], [150, 100, 70], [100, 66, 46]];
+const UNI = [[[78, 96, 58], [56, 70, 40]], [[52, 66, 98], [36, 46, 72]], [[44, 44, 50], [28, 28, 32]]]; // olive, navy, black ops per mission
+function drawGuard(c, s, sx, fy, size, shade, t) {
+  const h = size * 0.92, u = h / 100, hit = s.hit > 0;
+  const P = (r, g, b, a) => hit ? 'rgba(255,255,255,' + (a == null ? 1 : a) + ')' : 'rgba(' + (r * shade | 0) + ',' + (g * shade | 0) + ',' + (b * shade | 0) + ',' + (a == null ? 1 : a) + ')';
+  const A = (rgb, k) => P(rgb[0] * k, rgb[1] * k, rgb[2] * k);
+  c.save(); c.translate(sx, fy - h); c.scale(u, u);
+  const R = (x, y, w, hh, col) => { c.fillStyle = col; c.fillRect(x, y, w, hh); };
+  const skin = SKINS[s.skin || 0], uni = UNI[Math.min(2, mi)][0], uniD = UNI[Math.min(2, mi)][1];
+  if (s.hp <= 0) { // knocked out on the floor
+    c.fillStyle = 'rgba(0,0,0,.35)'; c.beginPath(); c.ellipse(0, 97, 40, 4, 0, 0, 7); c.fill();
+    R(-34, 86, 12, 9, A(skin, 0.9)); R(-34, 84, 12, 4, P(30, 30, 30)); // head + hair
+    c.strokeStyle = P(20, 20, 20); c.lineWidth = 1.2; c.beginPath(); c.moveTo(-31, 88); c.lineTo(-28, 91); c.moveTo(-28, 88); c.lineTo(-31, 91); c.stroke();
+    R(-22, 85, 26, 11, A(uni, 1)); R(-22, 85, 26, 2, A(uni, 1.2)); R(4, 87, 6, 8, P(20, 20, 20)); R(10, 87, 22, 4, A(uniD, 1)); R(10, 91, 22, 4, A(uniD, 0.85)); R(32, 86, 5, 9, P(15, 15, 15));
+    c.restore(); return;
+  }
+  const alert = s.st === 'alert', firing = s.fire > 0, step = Math.sin(t / 140 + s.x * 3) * (alert ? 0 : 1.2);
+  // floor shadow
+  c.fillStyle = 'rgba(0,0,0,.35)'; c.beginPath(); c.ellipse(0, 99, 22, 3, 0, 0, 7); c.fill();
+  // boots
+  R(-15, 92 + step * 0.3, 12, 8, P(22, 20, 18)); R(3, 92 - step * 0.3, 12, 8, P(22, 20, 18)); R(-14, 93, 5, 1.2, P(70, 66, 60)); R(4, 93, 5, 1.2, P(70, 66, 60)); R(-15, 98.6, 12, 1.4, P(8, 8, 8)); R(3, 98.6, 12, 1.4, P(8, 8, 8));
+  // trousers with knee pads / creases and cargo pockets
+  R(-14, 60, 12, 33, A(uniD, 1)); R(2, 60, 12, 33, A(uniD, 1)); R(-2, 60, 4, 12, A(uniD, 0.8));
+  R(-9, 62, 1, 30, A(uniD, 0.75)); R(8, 62, 1, 30, A(uniD, 0.75));
+  R(-15, 70, 5, 9, A(uniD, 0.85)); R(10, 70, 5, 9, A(uniD, 0.85)); R(-15, 70, 5, 1.5, A(uniD, 1.2)); R(10, 70, 5, 1.5, A(uniD, 1.2));
+  R(-13, 80, 10, 3, A(uniD, 1.25)); R(3, 80, 10, 3, A(uniD, 1.25)); // knee pads
+  // belt + buckle + holster
+  R(-16, 56, 32, 5, P(26, 22, 18)); R(-3, 56.5, 6, 4, P(210, 170, 60)); R(-1.5, 57.5, 3, 2, P(26, 22, 18)); R(11, 57, 6, 10, P(34, 28, 22));
+  // torso: jacket with collar, zip/buttons, chest pockets, badge, epaulettes
+  R(-18, 29, 36, 28, A(uni, 1)); R(8, 29, 10, 28, A(uni, 0.85)); R(-18, 29, 3, 28, A(uni, 1.15));
+  R(-7, 29, 14, 4, A(uni, 0.7)); c.fillStyle = mi === 2 ? P(20, 20, 24) : P(225, 225, 215); c.beginPath(); c.moveTo(-5, 29); c.lineTo(0, 37); c.lineTo(5, 29); c.fill(); // shirt V
+  R(-0.8, 34, 1.6, 22, A(uni, 0.65)); for (let y = 38; y < 56; y += 5) R(-1.3, y, 2.6, 2, P(200, 180, 120));
+  R(-15, 37, 11, 9, A(uni, 0.9)); R(4, 37, 11, 9, A(uni, 0.9)); R(-15, 37, 11, 2.5, A(uni, 1.15)); R(4, 37, 11, 2.5, A(uni, 1.15)); R(-10.5, 39.5, 2, 1.5, P(200, 180, 120)); R(8.5, 39.5, 2, 1.5, P(200, 180, 120));
+  c.fillStyle = P(240, 200, 70); c.beginPath(); for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? 1.2 : 2.8; c.lineTo(-9.5 + Math.cos(a) * rr, 33.5 + Math.sin(a) * rr); } c.fill(); // badge star
+  R(-20, 29, 8, 3, A(uni, 1.3)); R(12, 29, 8, 3, A(uni, 1.3)); R(-19, 29.5, 1, 2, P(220, 190, 80)); R(18, 29.5, 1, 2, P(220, 190, 80));
+  R(-18, 50, 36, 1.5, A(uni, 0.7));
+  // arms
+  if (alert) { // pistol raised in both hands, pointed at you
+    R(-22, 31, 7, 14, A(uni, 0.95)); R(15, 31, 7, 14, A(uni, 0.8));
+    c.fillStyle = A(uni, 0.9); c.beginPath(); c.moveTo(-22, 42); c.lineTo(-15, 45); c.lineTo(-3, 46); c.lineTo(-3, 51); c.lineTo(-18, 50); c.fill();
+    c.fillStyle = A(uni, 0.78); c.beginPath(); c.moveTo(22, 42); c.lineTo(15, 45); c.lineTo(3, 46); c.lineTo(3, 51); c.lineTo(18, 50); c.fill();
+    R(-5, 44, 10, 8, A(skin, 0.95)); R(-5, 44, 10, 1.5, A(skin, 1.1)); R(-1, 48, 2, 4, A(skin, 0.75)); // hands
+    R(-3.5, 38, 7, 7, P(30, 30, 34)); R(-2.2, 39.3, 4.4, 4.4, P(8, 8, 8)); R(-3.5, 38, 7, 1, P(90, 90, 100)); // gun muzzle facing you
+    if (firing) { c.fillStyle = P(255, 230, 90, 0.95); c.beginPath(); for (let k = 0; k < 12; k++) { const a = k * Math.PI / 6, rr = k % 2 ? 4 : 10; c.lineTo(Math.cos(a) * rr, 41.5 + Math.sin(a) * rr); } c.fill(); c.fillStyle = P(255, 255, 230); c.beginPath(); c.arc(0, 41.5, 3, 0, 7); c.fill(); }
+  } else {
+    R(-23, 31, 6, 26, A(uni, 0.95)); R(17, 31, 6, 26, A(uni, 0.8)); R(-23, 46, 6, 2, A(uni, 0.7)); R(17, 46, 6, 2, A(uni, 0.65));
+    R(-23, 57, 6, 6, A(skin, 0.95)); R(17, 57, 6, 6, A(skin, 0.8)); R(-23, 61.5, 6, 1.5, A(skin, 0.7)); R(17, 61.5, 6, 1.5, A(skin, 0.6));
+    R(18, 52, 3, 16, P(28, 28, 30)); // radio / baton at the side
+  }
+  // neck
+  R(-5, 24, 10, 6, A(skin, 0.85)); R(-5, 28, 10, 1.5, A(skin, 0.65));
+  // head: ears, face with side shading, jaw
+  R(-13, 10, 3, 7, A(skin, 0.85)); R(10, 10, 3, 7, A(skin, 0.75)); R(-12.3, 12, 1.2, 3, A(skin, 0.6)); R(11.1, 12, 1.2, 3, A(skin, 0.55));
+  c.fillStyle = A(skin, 1); c.beginPath(); c.moveTo(-10, 2); c.lineTo(10, 2); c.lineTo(11, 16); c.lineTo(8, 23); c.lineTo(3, 26); c.lineTo(-3, 26); c.lineTo(-8, 23); c.lineTo(-11, 16); c.closePath(); c.fill();
+  c.fillStyle = A(skin, 0.82); c.beginPath(); c.moveTo(5, 2); c.lineTo(10, 2); c.lineTo(11, 16); c.lineTo(8, 23); c.lineTo(3, 26); c.lineTo(5, 18); c.closePath(); c.fill(); // shadow side
+  R(-9, 4, 4, 3, A(skin, 1.12)); // forehead highlight
+  // cheekbones
+  R(-9, 16, 3, 1.2, A(skin, 0.88)); R(6, 16, 3, 1.2, A(skin, 0.75));
+  const v = s.v || 0, look = K.clamp((pl.x - s.x) * 0.2, -0.8, 0.8);
+  // stubble / beard shadow (variants 0, 2)
+  if (v === 0 || v === 2) { c.fillStyle = P(skin[0] * 0.55, skin[1] * 0.5, skin[2] * 0.48, 0.55); c.beginPath(); c.moveTo(-10, 17); c.lineTo(-8, 23); c.lineTo(-3, 26); c.lineTo(3, 26); c.lineTo(8, 23); c.lineTo(10, 17); c.lineTo(6, 19); c.lineTo(-6, 19); c.closePath(); c.fill(); c.fillStyle = P(30, 24, 20, 0.5); for (let k = 0; k < 14; k++) { const hx = -8 + ((k * 37) % 16), hy = 19 + ((k * 13) % 6); c.fillRect(hx, hy, 0.7, 0.7); } }
+  // eyes / sunglasses
+  if (v === 2) {
+    R(-9, 10, 18, 1.4, P(20, 20, 24)); R(-9, 10, 8, 5, P(12, 12, 16)); R(1, 10, 8, 5, P(12, 12, 16)); R(-8, 10.8, 3, 1.2, P(120, 160, 200, 0.8)); R(2, 10.8, 3, 1.2, P(120, 160, 200, 0.8));
+  } else {
+    R(-8, 11, 6, 3.4, P(240, 238, 230)); R(2, 11, 6, 3.4, P(240, 238, 230));
+    const ex = look * 1.5; R(-6.2 + ex, 11.2, 2.6, 3, P(60, 44, 30)); R(3.8 + ex, 11.2, 2.6, 3, P(60, 44, 30)); R(-5.5 + ex, 11.8, 1.3, 1.8, P(5, 5, 5)); R(4.5 + ex, 11.8, 1.3, 1.8, P(5, 5, 5));
+    R(-5 + ex, 11.5, 0.6, 0.6, P(255, 255, 255)); R(5 + ex, 11.5, 0.6, 0.6, P(255, 255, 255)); // catchlights
+    R(-8, 14.2, 6, 0.8, A(skin, 0.7)); R(2, 14.2, 6, 0.8, A(skin, 0.7)); // lower lids / bags
+    R(-8, 10.6, 6, 0.7, P(40, 30, 25)); R(2, 10.6, 6, 0.7, P(40, 30, 25)); // upper lids
+  }
+  // eyebrows: flat when calm, angled down to the nose when alert
+  const hairC = v === 3 ? P(150, 60, 30) : P(38, 30, 24); c.fillStyle = hairC;
+  if (alert) { c.beginPath(); c.moveTo(-9, 7.5); c.lineTo(-2, 9.6); c.lineTo(-2, 11); c.lineTo(-9, 9.2); c.fill(); c.beginPath(); c.moveTo(9, 7.5); c.lineTo(2, 9.6); c.lineTo(2, 11); c.lineTo(9, 9.2); c.fill(); R(-1.2, 9.5, 0.6, 1.6, A(skin, 0.7)); R(0.6, 9.5, 0.6, 1.6, A(skin, 0.7)); }
+  else { R(-9, 8.3, 7, 1.6, hairC); R(2, 8.3, 7, 1.6, hairC); }
+  // nose: bridge, shadow side, nostrils
+  R(-1, 12, 2, 6, A(skin, 1.08)); c.fillStyle = A(skin, 0.72); c.beginPath(); c.moveTo(1, 12); c.lineTo(2.5, 18.5); c.lineTo(0.5, 19); c.fill(); R(-2.6, 18.4, 5.2, 1.5, A(skin, 0.8)); R(-2, 19, 1.2, 0.8, P(60, 30, 25)); R(0.8, 19, 1.2, 0.8, P(60, 30, 25));
+  // mustache (variant 3) / scar (variant 1)
+  if (v === 3) { c.fillStyle = P(150, 60, 30); c.beginPath(); c.moveTo(-6, 22.5); c.lineTo(-3, 20.4); c.lineTo(3, 20.4); c.lineTo(6, 22.5); c.lineTo(3, 21.6); c.lineTo(-3, 21.6); c.fill(); }
+  if (v === 1) { c.strokeStyle = P(150, 70, 70); c.lineWidth = 0.6; c.beginPath(); c.moveTo(5, 13); c.lineTo(8, 19); c.stroke(); for (let k = 0; k < 3; k++) { c.beginPath(); c.moveTo(5.4 + k, 14.6 + k * 1.8); c.lineTo(7.2 + k, 14 + k * 1.8); c.stroke(); } }
+  // mouth: firm line, a snarl when alert, open when shouting/firing
+  if (firing) { R(-3.5, 21.5, 7, 3, P(70, 20, 20)); R(-3, 21.5, 6, 0.8, P(240, 240, 230)); }
+  else if (alert) { R(-4, 22, 8, 1, P(90, 40, 35)); R(-4.5, 22.8, 1.2, 0.8, P(90, 40, 35)); R(3.3, 22.8, 1.2, 0.8, P(90, 40, 35)); }
+  else { R(-3.5, 22, 7, 1, P(120, 60, 50)); R(-2.5, 23, 5, 0.6, A(skin, 0.75)); }
+  R(-2, 25, 4, 0.8, A(skin, 0.8)); // chin dimple shadow
+  // headgear by variant
+  if (v === 0) { // peaked officer cap with badge
+    R(-12, -3, 24, 7, A(uniD, 1.05)); R(-13, -4, 26, 2.5, A(uniD, 1.25)); R(-11, 3, 22, 1.5, P(200, 170, 60)); c.fillStyle = P(10, 10, 12); c.beginPath(); c.moveTo(-11, 4); c.lineTo(11, 4); c.lineTo(9, 7.5); c.lineTo(-9, 7.5); c.fill(); R(-8, 4.6, 6, 0.8, P(80, 80, 90)); c.fillStyle = P(230, 200, 80); c.beginPath(); c.arc(0, 0, 2.2, 0, 7); c.fill(); R(-11, 6.5, 2, 3, P(38, 30, 24)); R(9, 6.5, 2, 3, P(38, 30, 24));
+  } else if (v === 1) { // tilted beret with flash
+    const bc = mi === 1 ? [60, 60, 70] : [150, 28, 34]; c.fillStyle = P(bc[0], bc[1], bc[2]); c.beginPath(); c.ellipse(-2, 2, 13, 5, -0.18, 0, 7); c.fill(); c.fillStyle = P(bc[0] * 0.7, bc[1] * 0.7, bc[2] * 0.7); c.beginPath(); c.ellipse(-7, 3, 7, 3.2, -0.3, 0, 7); c.fill(); R(-11, 4.8, 22, 1.6, P(25, 20, 18)); R(-8, 1, 4, 4, P(230, 200, 80)); R(-7.2, 1.8, 2.4, 2.4, P(40, 90, 160));
+    R(-11, 6, 2, 5, P(38, 30, 24)); R(9, 6, 2, 5, P(38, 30, 24));
+  } else if (v === 2) { // buzz cut + earpiece
+    R(-10.5, 0.5, 21, 4.5, P(44, 36, 30)); R(-11, 3, 2, 7, P(44, 36, 30)); R(9, 3, 2, 7, P(44, 36, 30)); c.fillStyle = P(70, 60, 50, 0.6); for (let k = 0; k < 12; k++) c.fillRect(-9 + (k * 7) % 18, 1 + (k % 3), 0.6, 0.6);
+    R(10.5, 13, 2, 2, P(15, 15, 15)); R(11, 15, 0.8, 9, P(200, 200, 200));
+  } else if (v === 3) { // ginger, slicked hair + tactical headset
+    R(-10.5, 0, 21, 5, P(150, 60, 30)); R(-11, 2, 3, 9, P(150, 60, 30)); R(8, 2, 3, 8, P(130, 50, 25)); R(-6, 0.6, 9, 1.2, P(200, 100, 50));
+    R(-13, 9, 3, 7, P(30, 30, 34)); R(-12, 16, 1, 5, P(30, 30, 34)); R(-12, 21, 6, 1.4, P(30, 30, 34));
+  } else { // combat helmet with goggles strap
+    c.fillStyle = A(uniD, 1.1); c.beginPath(); c.moveTo(-13, 8); c.quadraticCurveTo(-13, -5, 0, -5); c.quadraticCurveTo(13, -5, 13, 8); c.closePath(); c.fill();
+    R(-13, 6.5, 26, 2, A(uniD, 0.75)); R(-11, 1, 22, 3, P(50, 50, 56)); R(-8, 1.4, 6, 2.2, P(120, 170, 200, 0.85)); R(2, 1.4, 6, 2.2, P(120, 170, 200, 0.85)); R(-13, 8, 1.2, 14, P(30, 26, 22)); R(11.8, 8, 1.2, 14, P(30, 26, 22));
+  }
+  // alert "!" above the head
+  if (alert && !firing && Math.floor(t / 300) % 2 === 0) { c.fillStyle = 'rgba(255,60,60,.9)'; R(-1.5, -16, 3, 7, 'rgba(255,60,60,.9)'); R(-1.5, -7.5, 3, 2.5, 'rgba(255,60,60,.9)'); }
+  c.restore();
 }
 function draw(c, t) {
   c.fillStyle = '#0a0c10'; c.fillRect(0, 0, W, H);
@@ -145,7 +255,7 @@ function draw(c, t) {
         dist = side === 0 ? distX - ddx : distY - ddy; break;
       }
     }
-    const perp = dist * Math.cos(ra - pl.a), hh = Math.min(VIEWH * 3, VIEWH / Math.max(0.05, perp)), top = VIEWH / 2 - hh / 2 + (hitDoor ? hh * hitDoor : 0);
+    const perp = dist * Math.cos(ra - pl.a), hh = Math.min(VIEWH * 4, PROJ / Math.max(0.05, perp)), top = VIEWH / 2 - hh / 2 + (hitDoor ? hh * hitDoor : 0);
     const base = WALLC[ch] || WALLC['#'], shade = Math.max(0.2, 1 - perp / 12) * (side ? 0.78 : 1);
     const wx = side === 0 ? pl.y + perp * dy : pl.x + perp * dx, frac = wx - Math.floor(wx), stripe = frac < 0.06 || frac > 0.94 ? 0.7 : 1;
     const tex = wallTex(ch), tx = Math.min(63, Math.floor(frac * 64)), vis = hh - (hitDoor ? hh * hitDoor : 0);
@@ -160,7 +270,7 @@ function draw(c, t) {
   for (const { s, d } of list) {
     let ang = Math.atan2(s.y - pl.y, s.x - pl.x) - pl.a; while (ang > Math.PI) ang -= 6.283; while (ang < -Math.PI) ang += 6.283;
     if (Math.abs(ang) > FOV / 2 + 0.3 || d < 0.2) continue;
-    const perp = d * Math.cos(ang), size = VIEWH / perp, sx = W / 2 + Math.tan(ang) / Math.tan(FOV / 2) * W / 2;
+    const perp = d * Math.cos(ang), size = PROJ / perp, sx = W / 2 + Math.tan(ang) / Math.tan(FOV / 2) * W / 2;
     const x0 = Math.floor(sx - size / 2), x1 = Math.floor(sx + size / 2);
     c.save(); c.beginPath(); let any = false;
     for (let col = Math.max(0, x0); col < Math.min(W, x1); col++) if (zbuf[col] > perp) { c.rect(col, 0, 1, VIEWH); any = true; }
@@ -169,34 +279,82 @@ function draw(c, t) {
     const fy = VIEWH / 2 + size / 2, shade = Math.max(0.3, 1 - perp / 12);
     c.globalAlpha = 1;
     if (s.k === 'guard') {
-      const dead = s.hp <= 0, h = size * 0.85, w2 = size * 0.42;
-      if (dead) { c.fillStyle = '#3a3a2a'; c.fillRect(sx - w2, fy - size * 0.12, w2 * 2, size * 0.12); }
-      else {
-        c.fillStyle = s.hit > 0 ? '#fff' : 'rgba(' + (70 * shade | 0) + ',' + (90 * shade | 0) + ',' + (60 * shade | 0) + ',1)'; c.fillRect(sx - w2 / 2, fy - h * 0.82, w2, h * 0.5);
-        c.fillStyle = 'rgba(' + (200 * shade | 0) + ',' + (160 * shade | 0) + ',' + (130 * shade | 0) + ',1)'; c.fillRect(sx - w2 / 4, fy - h, w2 / 2, h * 0.2);
-        c.fillStyle = '#222'; c.fillRect(sx - w2 / 3, fy - h * 0.32, w2 / 4, h * 0.32); c.fillRect(sx + w2 / 12, fy - h * 0.32, w2 / 4, h * 0.32);
-        c.fillStyle = '#111'; c.fillRect(sx - w2 / 3.5, fy - h * 1.02, w2 / 1.75, h * 0.06);
-        if (s.st === 'alert') { c.fillStyle = '#333'; c.fillRect(sx - w2 / 8, fy - h * 0.7, w2 * 0.6, h * 0.06); if (s.fire > 0) { c.fillStyle = '#ffd23f'; c.beginPath(); c.arc(sx + w2 * 0.5, fy - h * 0.67, size * 0.06, 0, 7); c.fill(); } }
-      }
+      drawGuard(c, s, sx, fy, size, shade, t);
     } else if (s.k === 'E') { c.fillStyle = 'rgba(60,255,120,' + (0.35 + Math.sin(t / 200) * 0.15) + ')'; c.fillRect(sx - size * 0.4, fy - size * 0.9, size * 0.8, size * 0.9); }
     else { const col = { d: '#46d0ff', a: '#c8a050', h: '#ff3b5c', k: '#ffd23f' }[s.k]; const bs = size * 0.22, by = fy - bs - Math.sin(t / 250) * size * 0.04; c.fillStyle = col; c.fillRect(sx - bs / 2, by, bs, bs * (s.k === 'd' ? 1 : 0.7)); c.fillStyle = 'rgba(255,255,255,.6)'; c.fillRect(sx - bs / 4, by + bs * 0.15, bs / 2, bs * 0.15); }
     c.restore();
   }
-  // gun
-  const bob = Math.sin(t / 120) * ((K.down('up') || K.down('down')) ? 3 : 0.5);
-  c.fillStyle = '#2a2a30'; c.fillRect(W / 2 + 18, VIEWH - 34 + bob + (gunT > 0.18 ? 6 : 0), 22, 34); c.fillStyle = '#4a4a55'; c.fillRect(W / 2 + 22, VIEWH - 44 + bob + (gunT > 0.18 ? 6 : 0), 12, 14); c.fillStyle = '#d8a878'; c.fillRect(W / 2 + 16, VIEWH - 12 + bob, 28, 12);
-  if (flash > 0) { c.fillStyle = '#ffd23f'; c.beginPath(); c.arc(W / 2 + 28, VIEWH - 48, 8, 0, 7); c.fill(); }
+  // gun: pistol held in the right hand, bobbing as you walk
+  const bob = Math.sin(t / 120) * ((K.down('up') || K.down('down')) ? 3 : 0.6), kick = gunT > 0.18 ? 8 : 0, gx = W / 2 + 22, gy = VIEWH - 58 + bob + kick;
+  c.fillStyle = '#c8916a'; c.beginPath(); c.moveTo(gx + 2, gy + 40); c.lineTo(gx + 30, gy + 40); c.lineTo(gx + 44, VIEWH); c.lineTo(gx - 6, VIEWH); c.fill(); // forearm
+  c.fillStyle = '#1e2a3a'; c.beginPath(); c.moveTo(gx - 6, VIEWH - 8 + bob * 0.3); c.lineTo(gx + 46, VIEWH - 8 + bob * 0.3); c.lineTo(gx + 50, VIEWH); c.lineTo(gx - 10, VIEWH); c.fill(); // sleeve cuff
+  c.fillStyle = '#26262c'; c.fillRect(gx + 6, gy + 18, 18, 26); c.fillStyle = '#34343c'; c.fillRect(gx + 8, gy + 20, 2, 22); // grip
+  c.fillStyle = '#3a3a44'; c.fillRect(gx + 2, gy, 26, 20); c.fillStyle = '#55555f'; c.fillRect(gx + 2, gy, 26, 4); c.fillStyle = '#1a1a1e'; for (let k = 0; k < 4; k++) c.fillRect(gx + 18 + k * 2.5, gy + 6, 1, 10); // slide + serrations
+  c.fillStyle = '#0a0a0c'; c.fillRect(gx + 11, gy + 3, 8, 7); c.fillStyle = '#ffd23f'; c.fillRect(gx + 14, gy - 2, 2, 3); // muzzle + front sight
+  c.fillStyle = '#d8a478'; c.fillRect(gx, gy + 24, 30, 16); c.fillStyle = '#c08a62'; for (let k = 0; k < 3; k++) c.fillRect(gx + 1, gy + 28 + k * 4, 28, 1); c.fillStyle = '#e8b890'; c.fillRect(gx - 4, gy + 18, 10, 10); // fingers + thumb
+  if (flash > 0) { c.fillStyle = 'rgba(255,220,80,.95)'; c.beginPath(); for (let k = 0; k < 14; k++) { const a = k * Math.PI / 7, rr = k % 2 ? 6 : 16; c.lineTo(gx + 15 + Math.cos(a) * rr, gy - 6 + Math.sin(a) * rr); } c.fill(); c.fillStyle = '#fff'; c.beginPath(); c.arc(gx + 15, gy - 6, 4, 0, 7); c.fill(); }
   // crosshair
-  c.fillStyle = 'rgba(255,255,255,.7)'; c.fillRect(W / 2 - 1, VIEWH / 2 - 5, 2, 3); c.fillRect(W / 2 - 1, VIEWH / 2 + 2, 2, 3); c.fillRect(W / 2 - 5, VIEWH / 2 - 1, 3, 2); c.fillRect(W / 2 + 2, VIEWH / 2 - 1, 3, 2);
+  c.fillStyle = 'rgba(255,255,255,.75)'; c.fillRect(W / 2 - 1, VIEWH / 2 - 7, 2, 4); c.fillRect(W / 2 - 1, VIEWH / 2 + 3, 2, 4); c.fillRect(W / 2 - 7, VIEWH / 2 - 1, 4, 2); c.fillRect(W / 2 + 3, VIEWH / 2 - 1, 4, 2);
   if (hurtT > 0) { c.fillStyle = 'rgba(255,0,0,' + hurtT + ')'; c.fillRect(0, 0, W, VIEWH); }
-  // bottom strip: health + minimap
-  c.fillStyle = '#12141c'; c.fillRect(0, VIEWH, W, H - VIEWH);
-  c.fillStyle = '#333'; c.fillRect(8, VIEWH + 9, 80, 8); c.fillStyle = hp > 30 ? '#3df07a' : '#ff3b5c'; c.fillRect(8, VIEWH + 9, 80 * Math.max(0, hp) / 100, 8);
-  K.text(c, 'HEALTH', 116, VIEWH + 13, 7, '#aaa');
-  const ms = 1.1, ox = W - g[0].length * ms - 8, oy = VIEWH + 2;
-  for (let y = 0; y < g.length; y++) for (let x = 0; x < g[0].length; x++) { const ch = g[y][x]; if (ch === '#') { c.fillStyle = '#4a5a7a'; c.fillRect(ox + x * ms, oy + y * ms, ms, ms); } if (ch === 'E') { c.fillStyle = '#3df07a'; c.fillRect(ox + x * ms, oy + y * ms, ms, ms); } }
-  c.fillStyle = '#ffd23f'; c.fillRect(ox + pl.x * ms - 1, oy + pl.y * ms - 1, 2, 2);
-  if (msgT > 0) { c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(0, 6, W, 22); c.font = '9px Rubik, sans-serif'; c.textAlign = 'center'; c.fillStyle = '#ffd23f'; c.fillText(msg, W / 2, 20, W - 10); }
+  // ---- bottom panel: status on the left, big minimap on the right ----
+  const pg = c.createLinearGradient(0, VIEWH, 0, H); pg.addColorStop(0, '#1c2030'); pg.addColorStop(1, '#0c0e16'); c.fillStyle = pg; c.fillRect(0, VIEWH, W, H - VIEWH);
+  c.fillStyle = '#3a4258'; c.fillRect(0, VIEWH, W, 2);
+  const lx = 8; let ly = VIEWH + 14;
+  K.text(c, 'HEALTH', lx, ly, 8, '#9aa6c0', 'left'); ly += 9;
+  c.fillStyle = '#2a2e3a'; c.fillRect(lx, ly, 116, 10); c.fillStyle = hp > 30 ? '#3df07a' : (Math.floor(t / 200) % 2 ? '#ff3b5c' : '#a01830'); c.fillRect(lx + 1, ly + 1, 114 * K.clamp(hp / 100, 0, 1), 8); c.fillStyle = 'rgba(255,255,255,.25)'; c.fillRect(lx + 1, ly + 1, 114 * K.clamp(hp / 100, 0, 1), 2);
+  ly += 22; K.text(c, 'AMMO ' + ammo, lx, ly, 9, '#ffd23f', 'left');
+  for (let k = 0; k < Math.min(12, ammo); k++) { c.fillStyle = '#c8a050'; c.fillRect(lx + 70 + (k % 6) * 7, ly - 6 + Math.floor(k / 6) * 7, 4, 5); c.fillStyle = '#e8c070'; c.fillRect(lx + 70 + (k % 6) * 7, ly - 6 + Math.floor(k / 6) * 7, 4, 1.5); }
+  ly += 18; K.text(c, 'DISKS', lx, ly, 9, '#46d0ff', 'left');
+  for (let k = 0; k < 3; k++) { const x = lx + 50 + k * 18; c.fillStyle = k < disks ? '#46d0ff' : '#2a2e3a'; c.fillRect(x, ly - 7, 13, 14); c.fillStyle = k < disks ? '#d8f4ff' : '#3a3e4a'; c.fillRect(x + 3, ly - 7, 7, 5); c.fillStyle = '#0c0e16'; c.fillRect(x + 7, ly - 6, 2, 3); }
+  ly += 18; K.text(c, keycard ? 'KEYCARD ✓' : 'NO KEYCARD', lx, ly, 8, keycard ? '#ffd23f' : '#566078', 'left');
+  K.text(c, 'MISSION ' + (mi + 1), lx, H - 7, 7, '#7a86a0', 'left');
+  // minimap (tap to enlarge)
+  const B = MAPBOX, gw = g[0].length, gh = g.length, ms = Math.min((B.w - 4) / gw, (B.h - 12) / gh), ox = B.x + (B.w - gw * ms) / 2, oy = B.y + 2;
+  c.fillStyle = '#05070c'; c.fillRect(B.x, B.y, B.w, B.h); c.strokeStyle = '#46d0ff'; c.lineWidth = 1; c.strokeRect(B.x + 0.5, B.y + 0.5, B.w - 1, B.h - 1);
+  drawMap(c, ox, oy, ms, t, false);
+  K.text(c, 'TAP: BIG MAP', B.x + B.w / 2, B.y + B.h - 5, 6, '#46d0ff');
+  if (msgT > 0) { c.fillStyle = 'rgba(0,0,0,.65)'; c.fillRect(0, 6, W, 26); c.font = '10px Rubik, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#ffd23f'; wrapText(c, msg, W / 2, 19, W - 12, 11); }
+  // full-screen map
+  if (bigMap) {
+    c.fillStyle = 'rgba(4,6,12,.94)'; c.fillRect(0, 0, W, H);
+    const bm = Math.min((W - 12) / gw, (H - 70) / gh), bx = (W - gw * bm) / 2, by = 34;
+    K.text(c, 'MISSION ' + (mi + 1) + ' MAP', W / 2, 16, 11, '#ffd23f');
+    c.strokeStyle = '#46d0ff'; c.strokeRect(bx - 3.5, by - 3.5, gw * bm + 7, gh * bm + 7);
+    drawMap(c, bx, by, bm, t, true);
+    const ky = by + gh * bm + 16; c.font = '8px Rubik, sans-serif'; c.textAlign = 'left'; c.textBaseline = 'middle';
+    [['#ffd23f', 'YOU'], ['#46d0ff', 'DISK'], ['#3df07a', 'EXIT'], ['#ff3b5c', 'GUARD'], ['#c88a3a', 'DOOR']].forEach((L, k) => { const x = 10 + k * 46; c.fillStyle = L[0]; c.fillRect(x, ky - 3, 6, 6); c.fillStyle = '#c8d0e0'; c.fillText(L[1], x + 9, ky); });
+    K.text(c, 'PAUSED - TAP TO CLOSE', W / 2, H - 12, 9, '#9aa6c0');
+  }
+}
+function wrapText(c, s, x, y, maxW, lh) {
+  const words = s.split(' '); let line = '', lines = [];
+  for (const w of words) { const tst = line ? line + ' ' + w : w; if (c.measureText(tst).width > maxW && line) { lines.push(line); line = w; } else line = tst; }
+  lines.push(line); lines = lines.slice(0, 2); const y0 = y - (lines.length - 1) * lh / 2;
+  lines.forEach((l, i) => c.fillText(l, x, y0 + i * lh));
+}
+// the map: walls, doors, exit, disks/keycard, guards you can see, and you with a view cone
+function drawMap(c, ox, oy, ms, t, big) {
+  const gw = g[0].length, gh = g.length;
+  c.save(); c.beginPath(); c.rect(ox, oy, gw * ms, gh * ms); c.clip();
+  c.fillStyle = '#141a28'; c.fillRect(ox, oy, gw * ms, gh * ms);
+  for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) {
+    const ch = g[y][x], X = ox + x * ms, Y = oy + y * ms;
+    if (ch === '#') { c.fillStyle = '#4a5a7a'; c.fillRect(X, Y, ms, ms); if (ms > 4) { c.fillStyle = '#5e7096'; c.fillRect(X, Y, ms, 1); } }
+    else if (ch === 'D' || ch === 'K') { const d = doors[x + ',' + y]; c.fillStyle = ch === 'K' ? '#e63946' : '#c88a3a'; if (d && d.open >= 0.9) { c.globalAlpha = 0.35; } c.fillRect(X, Y, ms, ms); c.globalAlpha = 1; }
+    else if (ch === 'E') { c.fillStyle = Math.floor(t / 300) % 2 ? '#3df07a' : '#1f9a4a'; c.fillRect(X, Y, ms, ms); }
+  }
+  for (const s of sprites) {
+    const X = ox + s.x * ms, Y = oy + s.y * ms, r = Math.max(1.2, ms * 0.32);
+    if (s.k === 'd') { c.fillStyle = Math.floor(t / 250) % 2 ? '#46d0ff' : '#a8ecff'; c.fillRect(X - r, Y - r, r * 2, r * 2); }
+    else if (s.k === 'k') { c.fillStyle = '#ffd23f'; c.fillRect(X - r, Y - r * 0.7, r * 2, r * 1.4); }
+    else if (big && (s.k === 'h' || s.k === 'a')) { c.fillStyle = s.k === 'h' ? '#f4f4f4' : '#c8a050'; c.fillRect(X - r * 0.7, Y - r * 0.7, r * 1.4, r * 1.4); }
+    else if (s.k === 'guard' && s.hp > 0 && (Math.hypot(s.x - pl.x, s.y - pl.y) < 3 || los(pl.x, pl.y, s.x, s.y))) { c.fillStyle = s.st === 'alert' ? '#ff3b5c' : '#ff9a6a'; c.beginPath(); c.arc(X, Y, r, 0, 7); c.fill(); }
+  }
+  // you: view cone + arrow
+  const px = ox + pl.x * ms, py = oy + pl.y * ms, L = ms * (big ? 3 : 4);
+  c.fillStyle = 'rgba(255,210,63,.18)'; c.beginPath(); c.moveTo(px, py); c.arc(px, py, L, pl.a - FOV / 2, pl.a + FOV / 2); c.closePath(); c.fill();
+  const ar = Math.max(2.5, ms * 0.6); c.fillStyle = '#ffd23f'; c.beginPath(); c.moveTo(px + Math.cos(pl.a) * ar * 1.4, py + Math.sin(pl.a) * ar * 1.4); c.lineTo(px + Math.cos(pl.a + 2.5) * ar, py + Math.sin(pl.a + 2.5) * ar); c.lineTo(px + Math.cos(pl.a - 2.5) * ar, py + Math.sin(pl.a - 2.5) * ar); c.fill();
+  c.restore();
 }
 title();
 K.run(update, draw);
