@@ -1,5 +1,5 @@
 // Offline cache for Pixel Legends. Bump VERSION whenever you add or change a game.
-const VERSION = "legends-v16";
+const VERSION = "legends-v17";
 const FILES = [
  "./",
  "./games.js",
@@ -29,6 +29,7 @@ const FILES = [
  "./games/pipe-hopper.html",
  "./games/puff-pal.html",
  "./games/doodle-dino.html",
+ "./games/claw-fury.html",
  "./games/powder-peak.html",
  "./games/ramp-rally.html",
  "./games/saddle-up.html",
