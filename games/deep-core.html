@@ -10,9 +10,9 @@
 <script>
 // Deep Core: explore an alien base room by room. Find the roll orb, missiles and jump boots to reach new areas, then destroy the creature at the core.
 K.theme({ bg: '#05070f', ink: '#e8f4ff', accent: '#ff8a1f', accentInk: '#2a1000' });
-const VW = 320, VH = 240, T = 16, RW = 20, RH = 15;
-// tight camera: the world is drawn 2.6x bigger and scrolls with the hero inside each room
-const Z = 2.6, ZW = VW / Z, ZH = VH / Z;
+const VW = 240, VH = 330, T = 16, RW = 20, RH = 15;
+// tall portrait camera: the 320x240 rooms are drawn 2.2x bigger and the view scrolls with the hero inside each room
+const Z = 2.2, ZW = VW / Z, ZH = VH / Z;
 let cam = { x: 0, y: 0 }, camRoom = '';
 K.screen(VW, VH);
 K.hud(['energy', 'missiles', 'items']);
@@ -169,7 +169,7 @@ function draw(c, t) {
   if (boss && boss.alive && Math.floor(boss.x / (RW * T)) === room.c && Math.floor(boss.y / (RH * T)) === room.r) { c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(VW / 2 - 61, 7, 122, 8); c.fillStyle = '#ff5fa2'; c.fillRect(VW / 2 - 59, 9, 118 * boss.hp / boss.max, 4); }
   c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(VW - 40, 6, 34, 26);
   for (let r = 0; r < 3; r++) for (let cc = 0; cc < 3; cc++) { c.fillStyle = cc === room.c && r === room.r ? '#ffd23f' : seen[cc + ',' + r] ? '#2a8aff' : '#222'; c.fillRect(VW - 38 + cc * 11, 8 + r * 8, 9, 6); }
-  if (msgT > 0) { c.fillStyle = 'rgba(0,0,0,.7)'; c.fillRect(10, VH - 52, VW - 20, 40); wrap(c, msg, VW / 2, VH - 38, VW - 40); }
+  if (msgT > 0) { c.fillStyle = 'rgba(0,0,0,.7)'; c.fillRect(8, VH - 64, VW - 16, 54); wrap(c, msg, VW / 2, VH - 50, VW - 32); }
 }
 // the hero in an orange power suit, drawn 1.3x the size of the hit box with shading and a glowing visor
 function drawHero(c, t) {

@@ -12,7 +12,8 @@
 <script>
 // Jungle Fire: run and gun through three stages. Aim in eight directions, grab weapon capsules and take down the fortress wall at the end of each stage.
 K.theme({ bg: '#0c140a', ink: '#fffaf0', accent: '#ff5a36', accentInk: '#fff' });
-const VW = 320, VH = 240, T = 16;
+// tall portrait view (ratio ~0.73) for phones held upright
+const VW = 240, VH = 330, T = 16;
 K.screen(VW, VH);
 K.hud(['score', 'gun', 'lives']);
 K.pad({ dpad: '4', buttons: [{ id: 'b', label: 'FIRE' }, { id: 'a', label: 'JUMP' }] });
@@ -35,9 +36,10 @@ const STAGES = [
   { n: 'Hive', chunks: ['start', 'depot', 'bunker', 'cliffs', 'ledges', 'water', 'depot', 'bunker', 'cliffs', 'run', 'boss'] }
 ];
 const GUNS = { N: { n: 'RIFLE', rate: 0.22, spd: 260 }, R: { n: 'RAPID', rate: 0.09, spd: 300 }, S: { n: 'SPREAD', rate: 0.28, spd: 240 }, L: { n: 'LASER', rate: 0.35, spd: 400 } };
-// characters are drawn 1.35x their hit boxes and the camera zooms in 2.2x, so everyone is about 3x bigger on screen
+// characters are drawn 1.35x their hit boxes and the camera zooms in 2x on the narrow portrait view, so everyone is over 3x bigger on screen
 const SC = 1.35, AIM_ERR = [0.38, 0.26, 0.16];
-let Z = 2.2, ZW = VW / Z, ZH = VH / Z;
+const ZRUN = 2.0, ZBOSS = 1.4;
+let Z = ZRUN, ZW = VW / Z, ZH = VH / Z;
 let state = 'title', si, w, p, cam, ents, shots, eshots, fx, caps, cans, tanks, ride, score, lives, gun, deadT, spawnT, boss, winT, msg, msgT, best = K.best('junglefire');
 function newGame() { si = 0; score = 0; lives = 5; gun = 'N'; load(); state = 'play'; }
 function title() { K.card({ title: 'JUNGLE FIRE', text: 'Hold FIRE to shoot. Hold up or down while firing to aim diagonally or straight up; press down on the ground to lie flat. Watch for helmets peeking out from behind rocks, logs and tall grass. Walk into a parked tank to drive it: FIRE blasts the cannon, JUMP hops, down + JUMP climbs out. Keep an eye on its fuel and armor!', best: best ? 'BEST ' + best : '', button: 'Lock and load', onStart: newGame }); }
@@ -45,7 +47,7 @@ function load() {
   const S = STAGES[si];
   w = P.world(P.join(S.chunks.map(k => CH[k])));
   P.SOLID = '#H'; P.ONEWAY = '=';
-  ents = []; shots = []; eshots = []; fx = []; caps = []; cans = []; tanks = []; ride = null; cam = { x: 0, y: w.py - VH / 2.2 }; Z = 2.2; ZW = VW / Z; ZH = VH / Z; deadT = 0; winT = 0; spawnT = 2; msg = 'STAGE ' + (si + 1) + ': ' + S.n.toUpperCase(); msgT = 1.8;
+  ents = []; shots = []; eshots = []; fx = []; caps = []; cans = []; tanks = []; ride = null; Z = ZRUN; ZW = VW / Z; ZH = VH / Z; cam = { x: 0, y: w.py - ZH }; deadT = 0; winT = 0; spawnT = 2; msg = 'STAGE ' + (si + 1) + ': ' + S.n.toUpperCase(); msgT = 1.8;
   for (let y = 0; y < w.rows; y++) for (let x = 0; x < w.cols; x++) {
     const ch = w.g[y][x], X = x * T, Y = y * T;
     if (ch === 'S') { w.start = { x: X, y: Y }; w.g[y][x] = '.'; }
@@ -114,17 +116,19 @@ function update(dt) {
   if (spawnT <= 0 && !boss.open) { spawnT = K.rnd(1.2, 2.6) / (1 + si * 0.25); const x = cam.x + ZW + 10; let y = 0; for (let ty = 2; ty < 13; ty++) if (P.isSolid(P.tile(w, x, ty * T)) || P.tile(w, x, ty * T) === '=') { y = (ty - 1) * T; break; } if (y) ents.push(P.walker(x, y, { kind: 'soldier', h: 16, w: 10, vx: -50 - si * 6, hp: 1 })); }
   for (const e of ents) {
     if (!e.alive || e.x > cam.x + ZW + 30) continue;
-    if (e.kind === 'soldier') { P.stepWalker(w, e, dt); e.vx = e.vx > 0 ? -Math.abs(e.vx) : e.vx; e.anim = (e.anim || 0) + dt; if (e.x < cam.x - 30) e.alive = false; if (Math.random() < dt * 0.3 * (1 + si * 0.3)) eshot(e.x + 5, e.y + 6, 110); }
+    // enemies only open fire once they are actually on screen
+    const vis = e.x + e.w > cam.x + 2 && e.x < cam.x + ZW - 4 && e.y + e.h > cam.y && e.y < cam.y + ZH;
+    if (e.kind === 'soldier') { P.stepWalker(w, e, dt); e.vx = e.vx > 0 ? -Math.abs(e.vx) : e.vx; e.anim = (e.anim || 0) + dt; if (e.x < cam.x - 30) e.alive = false; if (vis && Math.random() < dt * 0.3 * (1 + si * 0.3)) eshot(e.x + 5, e.y + 6, 110); }
     else if (e.kind === 'hider') {
       // hide -> peek (a small tell) -> pop up and shoot -> duck again
-      const near = Math.abs(e.x - tg.x) < ZW * 0.9;
+      const near = vis && Math.abs(e.x - tg.x) < ZW * 0.9;
       e.t -= dt;
       if (e.mode === 'hide' && e.t <= 0 && near) { e.mode = 'peek'; e.t = 0.75; if (e.cover === 'grass') K.beep(160, 0.08, { type: 'triangle', vol: 0.02 }); }
       else if (e.mode === 'peek' && e.t <= 0) { e.mode = 'up'; e.t = 1.1; e.shots = 1 + (Math.random() < 0.5 ? 1 : 0); e.st = 0.25; }
       else if (e.mode === 'up') { e.st -= dt; if (e.st <= 0 && e.shots > 0) { e.shots--; e.st = 0.4; eshot(e.x + 2, e.y + 5, 125); } if (e.t <= 0) { e.mode = 'hide'; e.t = K.rnd(1.4, 3); } }
       else if (e.mode === 'hide' && e.t <= 0) e.t = 0.5;
     }
-    else { e.t -= dt; if (e.t <= 0) { e.t = (e.kind === 'turret' ? 1.4 : 2) / (1 + si * 0.2); eshot(e.x + e.w / 2, e.y + 6, e.kind === 'turret' ? 120 : 140); } }
+    else { e.t -= dt; if (e.t <= 0 && !vis) e.t = 0.4; if (e.t <= 0) { e.t = (e.kind === 'turret' ? 1.4 : 2) / (1 + si * 0.2); eshot(e.x + e.w / 2, e.y + 6, e.kind === 'turret' ? 120 : 140); } }
     const exposed = e.kind !== 'hider' || e.mode === 'up';
     for (const s of shots) if (s.l > 0 && exposed && P.overlap({ x: s.x - 2, y: s.y - 2, w: 4, h: 4 }, hitBox(e))) { if (s.shell) { blast(s.x, s.y); s.l = 0; break; } if (!s.laser) s.l = 0; e.hp -= s.dmg; if (e.hp <= 0) killEnt(e); else K.beep(300, 0.03, { vol: 0.03 }); }
     if (e.alive && exposed && !ride && p.inv <= 0 && P.overlap(p, hitBox(e))) return die();
@@ -149,7 +153,7 @@ function update(dt) {
   // boss wall: the camera pulls back so you can see the whole fortress
   if (!boss.open && !boss.dead && tg.x > boss.x - 200) { boss.open = true; msg = 'DESTROY THE CORE!'; msgT = 1.5; }
   if (!boss.dead && boss.open) {
-    for (const g of boss.guns) { g.t -= dt; if (g.t <= 0) { g.t = K.rnd(0.8, 1.6) / (1 + si * 0.2); eshot(g.x, g.y, 130 + si * 15); } }
+    for (const g of boss.guns) { g.t -= dt; if (g.t <= 0 && g.x - 16 > cam.x + ZW) g.t = 0.3; if (g.t <= 0) { g.t = K.rnd(0.8, 1.6) / (1 + si * 0.2); eshot(g.x, g.y, 130 + si * 15); } }
     if (Math.random() < dt * 0.6) ents.push(P.walker(boss.x - 4, 12 * T, { kind: 'soldier', h: 16, w: 10, vx: -60, hp: 1 }));
     for (const s of shots) if (s.l > 0 && P.overlap({ x: s.x - 2, y: s.y - 2, w: 4, h: 4 }, boss.core)) { if (s.shell) { blast(s.x, s.y); s.l = 0; continue; } if (!s.laser) s.l = 0; hitBoss(s.dmg); }
     if (boss.hit > 0) boss.hit -= dt;
@@ -221,11 +225,12 @@ function over() { state = 'over'; best = K.saveBest('junglefire', score); K.card
 function victory() { state = 'over'; const f = score + lives * 3000; best = K.saveBest('junglefire', f); K.card({ title: 'MISSION COMPLETE', text: 'All three fortresses down! Final score ' + f + '.', best: 'BEST ' + best, button: 'Play again', onStart: newGame }); }
 // zoom in tight while running and gunning, pull back at the fortress
 function moveCam(dt) {
-  const zt = boss.open && !boss.dead || winT > 0 ? 1.3 : 2.2; Z += (zt - Z) * Math.min(1, dt * 1.8); ZW = VW / Z; ZH = VH / Z;
+  const zt = boss.open && !boss.dead || winT > 0 ? ZBOSS : ZRUN; Z += (zt - Z) * Math.min(1, dt * 1.8); ZW = VW / Z; ZH = VH / Z;
   const tg = target();
   cam.x = Math.max(cam.x, Math.min(w.px - ZW, tg.x - ZW * 0.38)); cam.x = Math.min(cam.x, w.px - ZW);
-  const ty = K.clamp(tg.y - ZH * 0.62, 0, w.py - ZH); cam.y += (ty - cam.y) * Math.min(1, dt * 5);
-  cam.y = K.clamp(cam.y, 0, w.py - ZH);
+  // if the view is ever taller than the level, pin it to the ground and show sky above
+  const ty = w.py <= ZH ? w.py - ZH : K.clamp(tg.y - ZH * 0.6, 0, w.py - ZH); cam.y += (ty - cam.y) * Math.min(1, dt * 5);
+  cam.y = w.py <= ZH ? w.py - ZH : K.clamp(cam.y, 0, w.py - ZH);
 }
 
 function drawTile(c, ch, x, y, tx, ty, t) {
@@ -392,16 +397,36 @@ function draw(c, t) {
     drawCan(c, { x: 12, y: 12 }, 0); c.fillStyle = '#333'; c.fillRect(25, 14, 70, 6); c.fillStyle = ride.fuel < 25 ? '#ff5a36' : '#ffd23f'; c.fillRect(25, 14, 70 * ride.fuel / 100, 6);
     c.fillStyle = '#9aa0aa'; c.beginPath(); c.moveTo(16.5, 26); c.lineTo(22, 28); c.lineTo(21, 34); c.lineTo(16.5, 36); c.lineTo(12, 34); c.lineTo(11, 28); c.fill(); c.fillStyle = '#333'; c.fillRect(25, 28, 70, 6); c.fillStyle = ride.armor < 35 ? '#ff3b5c' : '#7cd65a'; c.fillRect(25, 28, 70 * ride.armor / 100, 6);
   }
-  if (msgT > 0) K.text(c, msg, VW / 2, 50, 13, '#fff');
+  if (msgT > 0) { const m = msg.split(': '); m.forEach((ln, i) => K.text(c, ln, VW / 2, 56 + i * 17, m.length > 1 && i ? 11 : 14, '#fff')); }
 }
 title();
 const ART = [{ pal: A.PAL.jungle, sky: { top: '#1a5a7a', mid: '#5ab0a0', bottom: '#d0f0c0', sun: '#fff8c0', sunY: 40 }, layers: [{ factor: 0.12, base: 150, amp: 50, col: '#2a6a5a', edge: 'rgba(0,0,0,.2)', seed: 3, fog: 'rgba(200,255,220,.3)' }, { t: 'trees', factor: 0.3, base: 190, col: '#1a5a3a', hi: '#2a7a4a', kind: 'round', spacing: 22, size: 1.4, ground: true }, { t: 'trees', factor: 0.5, base: 212, col: '#0e3a22', kind: 'palm', spacing: 40, size: 1.2 }], amb: "leaf", vig: .3 }, { pal: A.PAL.desert, sky: { top: '#3a2a6a', mid: '#ff8a5a', bottom: '#ffd88a', sun: '#ffe8a0', sunY: 80, sunR: 18 }, layers: [{ factor: 0.12, base: 160, amp: 60, col: '#a05a5a', bands: ['rgba(255,200,150,.25)', 'rgba(120,40,40,.25)'], mesa: true, edge: 'rgba(0,0,0,.25)', seed: 1, fog: 'rgba(255,220,180,.2)' }, { factor: 0.3, base: 195, amp: 50, col: '#7a3a3a', bands: ['rgba(255,160,100,.3)', 'rgba(60,20,20,.3)'], mesa: true, edge: 'rgba(0,0,0,.45)', seed: 4 }, { t: 'trees', factor: 0.5, base: 215, col: '#4a2a2a', kind: 'palm', spacing: 46 }], amb: "dust", vig: .25 }, { pal: Object.assign({}, A.PAL.cave, { base: "#5a2a4a", hi: "#8a4a6a", lo: "#3a1a2a", mortar: "#1a0a14" }), sky: { top: "#14040e", mid: "#3a0a2a", bottom: "#6a1a4a", clouds: false }, layers: [{ factor: 0.15, base: 160, amp: 60, col: "#2a0a20", edge: "rgba(255,80,200,.3)", seed: 6 }, { factor: 0.3, base: 200, amp: 40, col: "#1a0614", edge: "rgba(255,80,200,.35)", seed: 2 }], amb: "ember", vig: .45 }];
 
-function artBg(c, t, i) { const L = ART[i] || ART[0]; A.sky(c, VW, VH, L.sky, t); c.save(); c.translate(0, Math.round(-(cam.y - (w.py - ZH)) * 0.3)); (L.layers || []).forEach(o => o.t === 'trees' ? A.trees(c, cam.x, o) : A.ridge(c, cam.x, o)); c.restore(); if (L.glow) A.glow(c, VW / 2, VH, 220, L.glow, 0.25); }
+function artBg(c, t, i) { const L = ART[i] || ART[0]; A.sky(c, VW, VH, L.sky, t); c.save(); c.translate(0, Math.round(VH - 240 - (cam.y - (w.py - ZH)) * 0.3)); /* backdrop was laid out for a 240-tall view: drop it to the ground line of the tall view */ (L.layers || []).forEach(o => o.t === 'trees' ? A.trees(c, cam.x, o) : A.ridge(c, cam.x, o)); c.restore(); if (L.glow) A.glow(c, VW / 2, VH, 220, L.glow, 0.25); }
 function artTile(c, ch, x, y, tx, ty, i, set, pal) { const sol = (a, b) => a < 0 || a >= w.cols || b >= w.rows || (b >= 0 && set.indexOf(w.g[b][a]) >= 0); A.tile(c, ch + i, x, y, A.edges(sol, tx, ty), tx, ty, pal); }
-drawSoldier = A.ink(drawSoldier);
-drawHero = A.ink(drawHero);
-drawTank = A.ink(drawTank);
+// dark ink outline around each sprite. A canvas 'filter' (A.ink) on the big portrait canvas took seconds per frame,
+// so each sprite is drawn into a small offscreen canvas, its silhouette stamped 4 times in ink, then the sprite on top.
+const INKC = document.createElement('canvas'), INKX = INKC.getContext('2d'), SILC = document.createElement('canvas'), SILX = SILC.getContext('2d');
+function inkFast(fn, box) {
+  return function (c) {
+    const b = box.apply(null, arguments), m = c.getTransform();
+    const x0 = Math.floor(m.a * b.x + m.e) - 2, y0 = Math.floor(m.d * b.y + m.f) - 2, wd = Math.ceil(m.a * b.w) + 4, ht = Math.ceil(m.d * b.h) + 4;
+    if (x0 > c.canvas.width || y0 > c.canvas.height || x0 + wd < 0 || y0 + ht < 0) return;
+    if (INKC.width < wd || INKC.height < ht) { INKC.width = SILC.width = Math.max(INKC.width, wd); INKC.height = SILC.height = Math.max(INKC.height, ht); }
+    INKX.setTransform(1, 0, 0, 1, 0, 0); INKX.clearRect(0, 0, wd, ht); INKX.setTransform(m.a, m.b, m.c, m.d, m.e - x0, m.f - y0);
+    const args = Array.prototype.slice.call(arguments); args[0] = INKX; const r = fn.apply(this, args);
+    SILX.setTransform(1, 0, 0, 1, 0, 0); SILX.globalCompositeOperation = 'source-over'; SILX.clearRect(0, 0, wd, ht); SILX.drawImage(INKC, 0, 0, wd, ht, 0, 0, wd, ht);
+    SILX.globalCompositeOperation = 'source-in'; SILX.fillStyle = 'rgba(20,10,5,.95)'; SILX.fillRect(0, 0, wd, ht);
+    const o = Math.max(1, m.a * 0.6);
+    c.save(); c.setTransform(1, 0, 0, 1, 0, 0);
+    [[o, 0], [-o, 0], [0, o], [0, -o]].forEach(d => c.drawImage(SILC, 0, 0, wd, ht, x0 + d[0], y0 + d[1], wd, ht));
+    c.drawImage(INKC, 0, 0, wd, ht, x0, y0, wd, ht); c.restore();
+    return r;
+  };
+}
+drawSoldier = inkFast(drawSoldier, (c, e) => ({ x: e.x - 22, y: e.y - 22, w: e.w + 44, h: e.h + 30 }));
+drawHero = inkFast(drawHero, () => ({ x: p.x - 26, y: p.y - 24, w: p.w + 52, h: p.h + 30 }));
+drawTank = inkFast(drawTank, (c, tk) => ({ x: tk.x - 30, y: tk.y - 30, w: tk.w + 60, h: tk.h + 40 }));
 { const _draw = draw; draw = function (c, t) { _draw(c, t); if (w) { const L = ART[si] || ART[0]; A.ambient(c, VW, VH, t, L.amb, 16); A.vignette(c, VW, VH, L.vig == null ? 0.3 : L.vig); } }; }
 K.run(update, draw);
 </script>

@@ -12,7 +12,8 @@
 <script>
 // Barbarian Blade: a sword-swinging hero crosses lava caves and ruined keeps to face the guardian at the end of each realm.
 K.theme({ bg: '#140a06', ink: '#fff2e0', accent: '#ff8a2a', accentInk: '#200a00' });
-const VW = 256, VH = 192, T = 16;
+// tall portrait view (ratio ~0.73) so the hero fills the phone screen
+const VW = 150, VH = 206, T = 16;
 K.screen(VW, VH);
 K.hud(['score', 'weapon', 'lives']);
 K.pad({ dpad: '4', buttons: [{ id: 'b', label: 'SWING' }, { id: 'a', label: 'JUMP' }] });
@@ -75,7 +76,7 @@ function update(dt) {
   items = items.filter(it => !it.got);
   foes.forEach(f => { if (!f.alive) return; if (f.x < cam.x - 80 || f.x > cam.x + VW + 80) return;
     if (f.k === 'liz' || f.k === 'skel') { if (Math.abs(f.x - p.x) < 100 && Math.abs(f.y - p.y) < 24) f.vx = Math.sign(p.x - f.x) * (f.k === 'liz' ? 45 : 32); P.stepWalker(w, f, dt);
-      if (f.k === 'skel') { f.cd -= dt; if (f.cd <= 0 && Math.abs(f.x - p.x) < 150) { f.cd = K.rnd(1.6, 2.6); eshots.push({ x: f.x + 6, y: f.y + 4, vx: Math.sign(p.x - f.x) * 90, vy: -150, bone: 1 }); } } }
+      if (f.k === 'skel') { f.cd -= dt; if (f.cd <= 0 && Math.abs(f.x - p.x) < 110 && f.x > cam.x - 8 && f.x < cam.x + VW - 4) { f.cd = K.rnd(1.6, 2.6); eshots.push({ x: f.x + 6, y: f.y + 4, vx: Math.sign(p.x - f.x) * 90, vy: -150, bone: 1 }); } } }
     if (f.k === 'bat') { f.ph += dt * 3; f.x += Math.sign(p.x - f.x) * 40 * dt; f.y = f.y0 + Math.sin(f.ph) * 24 + (p.y - f.y0) * 0.3 * (Math.abs(p.x - f.x) < 80 ? 1 : 0); }
     if (f.k === 'boss') { if (f.inv > 0) f.inv -= dt; f.vy = Math.min(300, (f.vy || 0) + 800 * dt); P.move(w, f, dt); f.cd -= dt; if (f.ground) f.vx *= 0.92;
       if (f.cd <= 0) { f.cd = f.hp < f.max / 2 ? 1.1 : 1.7; const r = Math.random(); if (r < 0.4) { f.vy = -330; f.vx = Math.sign(p.x - f.x) * 100; } else if (r < 0.8) { for (let i = 0; i < 3; i++) eshots.push({ x: f.x + 13, y: f.y + 14, vx: Math.sign(p.x - f.x) * (90 + i * 30), vy: -60 - i * 40, fire: 1 }); K.beep(200, 0.2, { to: 500 }); } else { f.vx = Math.sign(p.x - f.x) * 160; } } }
@@ -86,8 +87,14 @@ function update(dt) {
   if (boss && !boss.alive) { score += 1000 + hp * 100; K.tune([392, 523, 659, 784, 1046], 0.12); si++; boss = null;
     if (si >= STAGES.length) { state = 'over'; best = K.saveBest('barbarianblade', score); K.card({ title: 'LEGEND!', text: 'Every guardian has fallen. Final score ' + score + '.', best: 'BEST ' + best, button: 'Again', onStart: newGame }); return; }
     load(); return; }
-  cam = P.cam(w, p, cam, VW, VH);
+  camFollow(dt);
   K.set('score', score); K.set('weapon', WEAP[weap].n + (shield > 0 ? ' ⛨' : '')); K.set('lives', '♥'.repeat(Math.max(0, lives)));
+}
+// keep the hero ~40% from the left with a little look-ahead, and follow jumps vertically
+function camFollow(dt) {
+  const tx = p.x + p.w / 2 - VW * 0.4 + p.face * 8;
+  cam.x += (tx - cam.x) * Math.min(1, dt * 7); cam.x = Math.max(0, Math.min(w.px - VW, cam.x));
+  const ty = p.y - VH * 0.58; cam.y += (ty - cam.y) * Math.min(1, dt * 6); cam.y = Math.max(0, Math.min(w.py - VH, cam.y));
 }
 const LOOK = [
   { pal: A.PAL.earth, sky: { top: '#3a2a6a', mid: '#e8785a', bottom: '#ffd08a', sun: '#ffe8a0', sunY: 70, sunR: 18 }, far: { col: '#8a4a5a', bands: ['rgba(255,190,140,.25)', 'rgba(120,40,60,.25)'], mesa: true }, mid: { col: '#6a3a3a', bands: ['rgba(255,160,100,.3)', 'rgba(60,20,20,.3)'], mesa: true }, trees: { col: '#3a2a2a', kind: 'round', hi: '#5a3a3a' }, amb: 'leaf' },
@@ -130,15 +137,15 @@ function drawFoe(c, f, x, y, face, t) {
     A.part(c, x + 3, y + 30, 8, 10, '#2a2a3a'); A.part(c, x + 15, y + 30, 8, 10, '#2a2a3a'); A.part(c, x + 2, y + 10, 22, 20, '#4a4a5a'); c.fillStyle = '#6a6a7a'; c.fillRect(x + 4, y + 12, 18, 3); c.fillStyle = '#e8c04a'; c.fillRect(x + 11, y + 16, 4, 4);
     A.part(c, x - 2, y + 8, 8, 6, '#5a5a6a'); A.part(c, x + 20, y + 8, 8, 6, '#5a5a6a'); A.part(c, x + 6, y, 14, 11, '#6a6a7a'); c.fillStyle = '#111'; c.fillRect(x + 8, y + 4, 10, 3); c.fillStyle = '#ff3a2a'; c.fillRect(x + 9, y + 4.5, 8, 2); A.glow(c, x + 13, y + 5, 14, '255,60,30', 0.35);
     c.fillStyle = A.INK; c.fillRect(x + (face > 0 ? 23.5 : -18.5), y + 13.5, 21, 4); c.fillStyle = '#d8dce8'; c.fillRect(x + (face > 0 ? 24 : -18), y + 14, 20, 3);
-    c.fillStyle = 'rgba(0,0,0,.5)'; c.fillRect(VW - 110, 8, 102, 7); c.fillStyle = '#ff8a2a'; c.fillRect(VW - 109, 9, 100 * f.hp / f.max, 5); K.text(c, 'GUARDIAN', VW - 58, 22, 7, '#fff'); }
+    c.fillStyle = 'rgba(0,0,0,.5)'; c.fillRect(8, 19, VW - 16, 6); c.fillStyle = '#ff8a2a'; c.fillRect(9, 20, (VW - 18) * f.hp / f.max, 4); K.text(c, 'GUARDIAN', VW / 2, 31, 7, '#fff'); }
 }
 function draw(c, t) {
   const S = STAGES[si] || STAGES[0], L = LOOK[si] || LOOK[0], cx = Math.round(cam.x), cy = Math.round(cam.y);
   A.sky(c, VW, VH, L.sky, t);
   c.save(); c.translate(0, Math.round(-cy * 0.9));
-  A.ridge(c, cx, { factor: 0.12, base: 150, amp: 60, col: L.far.col, bands: L.far.bands, mesa: L.far.mesa, edge: 'rgba(0,0,0,.25)', seed: 1, fog: 'rgba(255,220,180,.15)' });
-  A.ridge(c, cx, { factor: 0.3, base: 185, amp: 55, col: L.mid.col, bands: L.mid.bands, mesa: L.mid.mesa, edge: 'rgba(0,0,0,.45)', seed: 4 });
-  if (L.trees) A.trees(c, cx, { factor: 0.5, base: 215, col: L.trees.col, hi: L.trees.hi, kind: L.trees.kind, spacing: 26, ground: true });
+  A.ridge(c, cx, { factor: 0.12, base: 164, amp: 64, col: L.far.col, bands: L.far.bands, mesa: L.far.mesa, edge: 'rgba(0,0,0,.25)', seed: 1, fog: 'rgba(255,220,180,.15)' });
+  A.ridge(c, cx, { factor: 0.3, base: 199, amp: 58, col: L.mid.col, bands: L.mid.bands, mesa: L.mid.mesa, edge: 'rgba(0,0,0,.45)', seed: 4 });
+  if (L.trees) A.trees(c, cx, { factor: 0.5, base: 229, col: L.trees.col, hi: L.trees.hi, kind: L.trees.kind, spacing: 26, ground: true });
   c.restore();
   if (si === 1) A.glow(c, VW / 2, VH, 220, '255,80,20', 0.25);
   if (!w) return;
@@ -157,7 +164,7 @@ function draw(c, t) {
   fx.forEach(e => { c.fillStyle = e.c; c.fillRect(e.x - cx, e.y - cy, 2, 2); });
   A.ambient(c, VW, VH, t, (LOOK[si] || LOOK[0]).amb, 20); A.vignette(c, VW, VH, si === 1 ? 0.55 : 0.35);
   c.fillStyle = 'rgba(0,0,0,.5)'; c.fillRect(8, 8, 62, 7); c.fillStyle = hp > 3 ? '#7aff4a' : '#ff4a4a'; c.fillRect(9, 9, 6 * Math.max(0, hp), 5);
-  if (msgT > 0) K.text(c, msg, VW / 2, 40, 12, '#fff');
+  if (msgT > 0) { const m = msg.split(': '); m.forEach((ln, i) => K.text(c, ln, VW / 2, 52 + i * 14, m.length > 1 && i ? 10 : 12, '#fff')); }
 }
 newGame(); state = 'title'; title(); K.run(update, draw);
 </script>
