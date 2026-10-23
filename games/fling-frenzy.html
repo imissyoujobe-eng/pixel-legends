@@ -13,10 +13,21 @@
 K.theme({ bg: '#0e1a2a', ink: '#fff', accent: '#ff7a2a', accentInk: '#fff' });
 // tall portrait view with a zooming camera: close-up on the slingshot while aiming (big Puffs), pulls back to chase the Puff, shows the whole fort on arrival.
 // S = pixels per meter, changes with the camera zoom every frame
-const W = 240, H = 330, GROUND = H - 46, ZSLING = 46, ZFLY = 28, ZWATCH = 30;
+let W = 240; const H = 330, GROUND = H - 46, ZSLING = 46, ZFLY = 28, ZWATCH = 30;
 let S = ZSLING;
 const cam = { x: 0, y: 0, z: ZSLING };
 K.screen(W, H, { smooth: true });
+// phone on its side: the screen stretches across the whole width and the camera pulls back so you see the
+// slingshot and the whole fort at once
+let FAR = false;
+K.fullLand();
+function setView() {
+  const land = innerWidth > innerHeight * 1.15, st = K.stageSize();
+  const w = land ? Math.round(K.clamp(H * st.w / Math.max(1, st.h), 240, 900)) : 240;
+  FAR = land;
+  if (w !== W) { W = w; K.screen(W, H, { smooth: true }); }
+}
+setView(); addEventListener('resize', () => setTimeout(setView, 60));
 K.hud(['score', 'level', 'puffs']);
 K.pad({ dpad: '4', buttons: [{ id: 'a', label: 'FLING' }] });
 const pl = planck, V = pl.Vec2;
@@ -101,10 +112,15 @@ function moveCam(dt) {
     else ax = cam.x + W / S / 2;
   } else if (watchT > 0 && watchAt) { tz = ZWATCH; ax = watchAt.x; ay = watchAt.y; }
   else { ax = SLING.x; fx = 0.42; }
+  if (FAR) {
+    // far view: slingshot on the left, whole fort on the right; rises to keep a high-flying Puff in sight
+    const fs = fortSpan(), x0 = SLING.x - 7, x1 = fs[1] + 3; tz = K.clamp(Math.min(W / (x1 - x0), GROUND / 9), 8, 40);
+    const flying = cur && cur.state === 'fly' && cur.body; ax = (x0 + x1) / 2; fx = 0.5; ay = flying ? cur.body.getPosition().y : null;
+  }
   const fast = cur && cur.state === 'fly' && cur.body;
   cam.z += (tz - cam.z) * (1 - Math.pow(fast ? 0.02 : 0.03, dt)); S = cam.z;
   const vw = W / S, vh = GROUND / S;
-  let tx = K.clamp(ax - vw * fx, -1, 34 - vw), ty = ay == null ? 0 : Math.max(0, ay - vh * 0.55);
+  let tx = FAR ? ax - vw * fx : K.clamp(ax - vw * fx, -1, 34 - vw), ty = ay == null ? 0 : Math.max(0, ay - vh * 0.55);
   const k = fast ? 1 - Math.pow(0.0005, dt) : 1 - Math.pow(0.04, dt);
   cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
 }

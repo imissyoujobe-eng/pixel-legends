@@ -13,7 +13,10 @@ K.theme({ bg: '#0a0c10', ink: '#e8f0ff', accent: '#ffd23f', accentInk: '#2a1d00'
 const W = 240, H = 330, VIEWH = 226; // tall portrait view: 3D view on top, instrument panel + big map below
 K.screen(W, H);
 K.hud(['mission', 'disks', 'ammo']);
-K.pad({ dpad: '4', buttons: [{ id: 'b', label: 'USE' }, { id: 'a', label: 'FIRE' }] });
+K.pad({ dpad: '4', buttons: [{ id: 'sl', label: '◀', top: true }, { id: 'sr', label: '▶', top: true }, { id: 'b', label: 'USE' }, { id: 'a', label: 'FIRE' }] });
+// keyboard: Q / E strafe
+addEventListener('keydown', e => { if (e.key === 'q' || e.key === 'Q') K.press('sl'); if (e.key === 'e' || e.key === 'E') K.press('sr'); });
+addEventListener('keyup', e => { if (e.key === 'q' || e.key === 'Q') K.release('sl'); if (e.key === 'e' || e.key === 'E') K.release('sr'); });
 const MAPS = [["########################", "#P.....#.....#.....g..d#", "#......#.....#.........#", "#..a...D..g..D....###..#", "#......#.....#....#h#..#", "####D###.....#....#.#..#", "#......####D###...#D#..#", "#..g...#......#........#", "#......#..h...#..g.....#", "#......D......####D#####", "#..d...#..g...#........#", "#......#......#..a..g..#", "###D####......#........#", "#......########.....####", "#..g...........g....#..#", "#......#####........D.E#", "#..a...#...#........#..#", "#......#.d.D..g.....####", "#......#...#...........#", "########################"], ["########################", "#P....#........#......d#", "#.....#..g.....D..g....#", "#.....D........#.......#", "#.....#####D####.......#", "##D####.....#..####K####", "#.....#..a..#..#.......#", "#..g..#.....#..#..g..k.#", "#.....D..g..D..#.......#", "#.....#.....#..###D#####", "#.h...#######..........#", "####D##.d....#..g......#", "#.....#......D.....a...#", "#..g..#..g...#.........#", "#.....#......#####D#####", "#.....D......#.........#", "#.a...#......#..g....E.#", "#######......D.........#", "#.d..........#....h....#", "########################"], ["########################", "#P..#.....g.....#.....d#", "#...D...........D..g...#", "#...#..######...#......#", "##D##..#....#...####D###", "#......#.d..K...#......#", "#..g...#....#...#..g...#", "#......######...#..h...#", "#.a.......g.....D......#", "####D#####..#####.....##", "#........#..#...#...g..#", "#..g..k..#..D.a.#......#", "#........#..#...###D####", "#####D####..#..........#", "#........#..####..g....#", "#.h...g..D..#..#.......#", "#........#..#..D...E...#", "#..d.....#..#..#...g...#", "#........#.....#.......#", "########################"]];
 const BRIEFS = ['Mission 1: Harbor Warehouse. Recover 3 data disks, then reach the green exit pad.', 'Mission 2: Mountain Lab. A keycard opens the red security door. 3 disks, then exit.', 'Mission 3: Satellite Base. The final 3 disks are behind a locked vault. Then get out!'];
 let bigMap = false, state = 'title', mi, g, pl, sprites, doors, shots, disks, ammo, hp, keycard, flash, hurtT, msg, msgT, gunT, zbuf = new Array(W), time, kills, best = K.best('agentzero');
@@ -42,10 +45,12 @@ function update(dt) {
   time += dt; if (msgT > 0) msgT -= dt; if (flash > 0) flash -= dt; if (hurtT > 0) hurtT -= dt; if (gunT > 0) gunT -= dt;
   const turn = (K.down('right') ? 1 : 0) - (K.down('left') ? 1 : 0), mv = (K.down('up') ? 1 : 0) - (K.down('down') ? 1 : 0);
   pl.a += turn * 2.6 * dt;
-  const sp = 2.6 * dt * mv, nx = pl.x + Math.cos(pl.a) * sp, ny = pl.y + Math.sin(pl.a) * sp, r = 0.22;
+  // strafe: step sideways (crab walk) while still facing forward
+  const st = (K.down('sr') ? 1 : 0) - (K.down('sl') ? 1 : 0), sp = 2.6 * dt * mv, ss = 2.2 * dt * st;
+  const nx = pl.x + Math.cos(pl.a) * sp - Math.sin(pl.a) * ss, ny = pl.y + Math.sin(pl.a) * sp + Math.cos(pl.a) * ss, r = 0.22;
   if (!solidAt(nx + Math.sign(nx - pl.x) * r, pl.y)) pl.x = nx;
   if (!solidAt(pl.x, ny + Math.sign(ny - pl.y) * r)) pl.y = ny;
-  if (mv && Math.random() < dt * 4) K.beep(90, 0.03, { vol: 0.02 });
+  if ((mv || st) && Math.random() < dt * 4) K.beep(90, 0.03, { vol: 0.02 });
   // doors
   for (const k in doors) { const d = doors[k]; if (d.opening) d.open = Math.min(1, d.open + dt * 1.6); }
   if (K.hit('b')) {
