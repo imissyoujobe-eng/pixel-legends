@@ -11,7 +11,8 @@
 <script>
 // Knockout Kid: work your way up a ladder of five boxers. Read their tells, dodge, then punch through the opening.
 K.theme({ bg: '#120a14', ink: '#fff4f0', accent: '#ff3b5c', accentInk: '#fff' });
-const W = 256, H = 240;
+// tall portrait view: the 256-wide ring scene is drawn 1.12x bigger, centred, with extra crowd above it and HUD on top
+const W = 240, H = 330, SW = 256, SC = 1.12, OY = 56;
 K.screen(W, H);
 K.hud(['me', 'round', 'foe']);
 K.pad({ dpad: '4', buttons: [{ id: 'b', label: 'LEFT' }, { id: 'a', label: 'RIGHT' }] });
@@ -90,19 +91,21 @@ function decision() { const win = foe.hp / foe.F.hp < me.hp / 100; if (win) vict
 function defeat() { state = 'over'; K.tune([392, 330, 262, 196], 0.18, { type: 'sawtooth' }); K.card({ title: 'DOWN FOR THE COUNT', text: foe.F.n + ' wins this one. Study the tells and try again!', best: wins ? 'FURTHEST: FIGHT ' + wins : '', button: 'Rematch', onStart: fight }); }
 
 function draw(c, t) {
-  const ag = c.createLinearGradient(0, 0, 0, 150); ag.addColorStop(0, '#05030a'); ag.addColorStop(1, '#2a1630'); c.fillStyle = ag; c.fillRect(0, 0, W, H);
-  // crowd: rows of fans with faces and shirts, bobbing, lit by the ring
-  for (let row = 0; row < 5; row++) for (let i = 0; i < 18; i++) { const x = i * 15 + (row % 2) * 7 - 4, y = 22 + row * 15 + Math.sin(t / 250 + i * 1.7 + row) * (1.5 + row * 0.3), sh = 0.45 + row * 0.12; const shirt = ['#c84a4a', '#4a7ac8', '#e8c04a', '#5aa85a', '#8a5ac8', '#e8e8e8'][(i * 7 + row * 3) % 6], skin = ['#f0c8a0', '#c8905a', '#8a5a3a', '#e8b080'][(i + row * 2) % 4];
-    c.globalAlpha = sh; c.fillStyle = shirt; c.fillRect(x - 6, y + 4, 12, 12); c.fillStyle = skin; c.beginPath(); c.arc(x, y, 5, 0, 7); c.fill(); c.fillStyle = ['#2a1a0a', '#c8a050', '#111', '#8a3a1a'][(i * 3 + row) % 4]; c.fillRect(x - 5, y - 5, 10, 3); if ((i + row) % 5 === 0) { c.fillStyle = skin; c.fillRect(x + 5, y - 6 + Math.sin(t / 120 + i) * 3, 2, 8); } c.globalAlpha = 1; }
+  const ag = c.createLinearGradient(0, 0, 0, H * 0.7); ag.addColorStop(0, '#05030a'); ag.addColorStop(1, '#2a1630'); c.fillStyle = ag; c.fillRect(0, 0, W, H);
+  c.save(); c.translate(W / 2, 0); c.scale(SC, SC); c.translate(-SW / 2, OY);
+  // crowd: rows of fans with faces and shirts, bobbing, lit by the ring (extra rows up in the stands)
+  for (let row = -4; row < 5; row++) for (let i = 0; i < 18; i++) { const x = i * 15 + (((row % 2) + 2) % 2) * 7 - 4, y = 22 + row * 15 + Math.sin(t / 250 + i * 1.7 + row) * (1.5 + Math.abs(row) * 0.3), sh = Math.max(0.12, 0.45 + row * 0.12); const ri = row + 8, shirt = ['#c84a4a', '#4a7ac8', '#e8c04a', '#5aa85a', '#8a5ac8', '#e8e8e8'][(i * 7 + ri * 3) % 6], skin = ['#f0c8a0', '#c8905a', '#8a5a3a', '#e8b080'][(i + ri * 2) % 4];
+    c.globalAlpha = sh; c.fillStyle = shirt; c.fillRect(x - 6, y + 4, 12, 12); c.fillStyle = skin; c.beginPath(); c.arc(x, y, 5, 0, 7); c.fill(); c.fillStyle = ['#2a1a0a', '#c8a050', '#111', '#8a3a1a'][(i * 3 + ri) % 4]; c.fillRect(x - 5, y - 5, 10, 3); if ((i + ri) % 5 === 0) { c.fillStyle = skin; c.fillRect(x + 5, y - 6 + Math.sin(t / 120 + i) * 3, 2, 8); } c.globalAlpha = 1; }
   A.glow(c, 60, 0, 120, '255,240,200', 0.12); A.glow(c, 196, 0, 120, '255,240,200', 0.12);
   c.fillStyle = 'rgba(255,250,220,.06)'; c.beginPath(); c.moveTo(40, 0); c.lineTo(80, 0); c.lineTo(150, 240); c.lineTo(60, 240); c.fill(); c.beginPath(); c.moveTo(176, 0); c.lineTo(216, 0); c.lineTo(196, 240); c.lineTo(106, 240); c.fill();
-  if (Math.random() < 0.05) fx.push({ flash: true, x: K.rnd(0, W), y: K.rnd(10, 60), l: 0.1 });
+  c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(0, -OY, SW, 6); for (let k = 0; k < 6; k++) { const lx = 20 + k * 43; c.fillStyle = '#2a2a34'; c.fillRect(lx - 7, -OY + 4, 14, 6); A.glow(c, lx, -OY + 12, 16, '255,240,200', 0.25); c.fillStyle = '#fff6d8'; c.fillRect(lx - 5, -OY + 9, 10, 2); }
+  if (Math.random() < 0.07) fx.push({ flash: true, x: K.rnd(10, SW - 10), y: K.rnd(-40, 60), l: 0.1 });
   // ring
-  const rg = c.createLinearGradient(0, 150, 0, 240); rg.addColorStop(0, '#5a8aff'); rg.addColorStop(0.08, '#3a6ad8'); rg.addColorStop(1, '#1a3a90'); c.fillStyle = rg; c.fillRect(0, 150, W, 90);
-  c.fillStyle = 'rgba(255,255,255,.08)'; for (let k = 0; k < 40; k++) c.fillRect(A.hash(k, 1) * W, 156 + A.hash(k, 2) * 80, 3, 1); c.fillStyle = 'rgba(255,255,255,.18)'; c.beginPath(); c.ellipse(128, 200, 50, 14, 0, 0, 7); c.fill(); K.text(c, 'PIXEL', 128, 200, 12, 'rgba(255,255,255,.35)');
-  c.fillStyle = A.INK; c.fillRect(0, 148, W, 3); A.part(c, 4, 82, 8, 70, '#c8c8d8'); A.part(c, W - 12, 82, 8, 70, '#c8c8d8');
-  for (let k = 0; k < 3; k++) { const y0 = 90 + k * 18; c.strokeStyle = A.INK; c.lineWidth = 4.5; c.beginPath(); c.moveTo(0, y0); c.quadraticCurveTo(W / 2, y0 + 10, W, y0 + 6); c.stroke(); c.strokeStyle = ['#ff3b5c', '#f4f4f4', '#3a6ad8'][k]; c.lineWidth = 3; c.stroke(); c.strokeStyle = 'rgba(255,255,255,.5)'; c.lineWidth = 1; c.beginPath(); c.moveTo(0, y0 - 1); c.quadraticCurveTo(W / 2, y0 + 9, W, y0 + 5); c.stroke(); } c.lineWidth = 1;
-  if (!foe) return;
+  const rg = c.createLinearGradient(0, 150, 0, 240); rg.addColorStop(0, '#5a8aff'); rg.addColorStop(0.08, '#3a6ad8'); rg.addColorStop(1, '#1a3a90'); c.fillStyle = rg; c.fillRect(0, 150, SW, 110);
+  c.fillStyle = 'rgba(255,255,255,.08)'; for (let k = 0; k < 40; k++) c.fillRect(A.hash(k, 1) * SW, 156 + A.hash(k, 2) * 80, 3, 1); c.fillStyle = 'rgba(255,255,255,.18)'; c.beginPath(); c.ellipse(128, 200, 50, 14, 0, 0, 7); c.fill(); K.text(c, 'PIXEL', 128, 200, 12, 'rgba(255,255,255,.35)');
+  c.fillStyle = A.INK; c.fillRect(0, 148, SW, 3); A.part(c, 22, 82, 8, 70, '#c8c8d8'); A.part(c, SW - 30, 82, 8, 70, '#c8c8d8'); A.part(c, 20, 80, 12, 6, '#ff3b5c'); A.part(c, SW - 32, 80, 12, 6, '#3a6ad8');
+  for (let k = 0; k < 3; k++) { const y0 = 90 + k * 18; c.strokeStyle = A.INK; c.lineWidth = 4.5; c.beginPath(); c.moveTo(0, y0); c.quadraticCurveTo(SW / 2, y0 + 10, SW, y0 + 6); c.stroke(); c.strokeStyle = ['#ff3b5c', '#f4f4f4', '#3a6ad8'][k]; c.lineWidth = 3; c.stroke(); c.strokeStyle = 'rgba(255,255,255,.5)'; c.lineWidth = 1; c.beginPath(); c.moveTo(0, y0 - 1); c.quadraticCurveTo(SW / 2, y0 + 9, SW, y0 + 5); c.stroke(); } c.lineWidth = 1;
+  if (!foe) { c.restore(); return; }
   // opponent
   const F = foe.F, cx = 128 + Math.sin(foe.sway) * 6 + (foe.hit > 0 ? (Math.random() - .5) * 6 : 0), down = foe.st === 'down';
   c.save(); c.translate(cx, down ? 150 : 128);
@@ -134,13 +137,17 @@ function draw(c, t) {
     gl(px - 24 + (pu && pu.side === 'L' ? 18 : 0), py - 18 - (pu && pu.side === 'L' ? (pu.high ? 70 : 46) : 0));
     gl(px + 24 - (pu && pu.side === 'R' ? 18 : 0), py - 18 - (pu && pu.side === 'R' ? (pu.high || pu.star ? 70 : 46) : 0));
   }
-  // stars + hp bars
-  for (let i = 0; i < 3; i++) K.text(c, '★', 12 + i * 12, 70, 10, i < me.stars ? '#ffd23f' : '#3a3a4a');
-  c.fillStyle = '#333'; c.fillRect(8, 78, 60, 5); c.fillStyle = '#7cff8a'; c.fillRect(8, 78, 60 * Math.max(0, me.hp) / 100, 5);
-  c.fillStyle = '#333'; c.fillRect(W - 68, 78, 60, 5); c.fillStyle = '#ff3b5c'; c.fillRect(W - 68, 78, 60 * Math.max(0, foe.hp) / foe.F.hp, 5);
   for (const f of fx) { if (f.flash) { c.fillStyle = '#fff'; c.fillRect(f.x, f.y, 3, 3); } else K.text(c, f.t, f.x || 128, f.y || 60, f.t.length > 5 ? 11 : 13, f.t === 'MISS' ? '#7cff8a' : f.t === 'BLOCK' ? '#aaa' : '#ffd23f'); }
-  if (me.st === 'down') { c.fillStyle = 'rgba(0,0,0,.5)'; c.fillRect(0, 0, W, H); K.text(c, 'COUNT ' + Math.max(1, 10 - Math.floor(me.t * 2.5)), 128, 110, 18, '#fff'); K.text(c, 'MASH THE PUNCH BUTTONS!', 128, 140, 10, '#ffd23f'); c.fillStyle = '#7cff8a'; c.fillRect(68, 154, 120 * Math.min(1, me.mash / (12 + me.knocks * 4)), 6); }
-  if (msgT > 0) K.text(c, msg, 128, 110, 16, '#fff');
+  if (msgT > 0 && me.st !== 'down') K.text(c, msg, 128, 110, 16, '#fff');
+  c.restore();
+  // HUD at the top of the tall screen: health bars with names, star punches
+  c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(0, 0, W, 34);
+  K.text(c, 'YOU', 10, 9, 8, '#7cff8a', 'left'); K.text(c, F.n, W - 10, 9, 8, '#ff8a9c', 'right');
+  c.fillStyle = '#333'; c.fillRect(8, 16, 78, 7); c.fillStyle = '#7cff8a'; c.fillRect(8, 16, 78 * Math.max(0, me.hp) / 100, 7);
+  c.fillStyle = '#333'; c.fillRect(W - 86, 16, 78, 7); const fw = 78 * Math.max(0, foe.hp) / foe.F.hp; c.fillStyle = '#ff3b5c'; c.fillRect(W - 8 - fw, 16, fw, 7);
+  for (let i = 0; i < 3; i++) K.text(c, '★', W / 2 - 14 + i * 14, 20, 11, i < me.stars ? '#ffd23f' : '#3a3a4a');
+  K.text(c, 'R' + round, W / 2, 8, 7, '#fff');
+  if (me.st === 'down') { c.fillStyle = 'rgba(0,0,0,.5)'; c.fillRect(0, 0, W, H); K.text(c, 'COUNT ' + Math.max(1, 10 - Math.floor(me.t * 2.5)), W / 2, 150, 20, '#fff'); K.text(c, 'MASH THE PUNCH BUTTONS!', W / 2, 182, 10, '#ffd23f'); c.fillStyle = '#7cff8a'; c.fillRect(W / 2 - 60, 196, 120 * Math.min(1, me.mash / (12 + me.knocks * 4)), 7); if (msgT > 0) K.text(c, msg, W / 2, 120, 12, '#fff'); }
 }
 title();
 { const _draw = draw; draw = function (c, t) { _draw(c, t); A.vignette(c, W, H, 0.4); }; }

@@ -11,9 +11,11 @@
 <script>
 // Fling Frenzy: pull back the slingshot and fling round Puffs at wobbly forts to knock out every Gloomy hiding inside. Real physics: towers topple, glass shatters, stone holds.
 K.theme({ bg: '#0e1a2a', ink: '#fff', accent: '#ff7a2a', accentInk: '#fff' });
-// everything is drawn 2x bigger (36 px per meter); a camera follows the Puff from the slingshot to the fort
-const W = 480, H = 270, S = 36, GROUND = H - 22;
-const cam = { x: 0, y: 0 };
+// tall portrait view with a zooming camera: close-up on the slingshot while aiming (big Puffs), pulls back to chase the Puff, shows the whole fort on arrival.
+// S = pixels per meter, changes with the camera zoom every frame
+const W = 240, H = 330, GROUND = H - 46, ZSLING = 46, ZFLY = 28, ZWATCH = 30;
+let S = ZSLING;
+const cam = { x: 0, y: 0, z: ZSLING };
 K.screen(W, H, { smooth: true });
 K.hud(['score', 'level', 'puffs']);
 K.pad({ dpad: '4', buttons: [{ id: 'a', label: 'FLING' }] });
@@ -39,7 +41,7 @@ let intro = 0, watchT = 0, watchAt = null, shake = 0;
 let world, bodies, puffList, cur, state = 'title', lvl, score, levelScore, aim, settleT, flightT, restT, endT, fx, pops, abilityUsed, best = K.best('flingfrenzy'), unlocked = Math.max(1, K.best('flingfrenzy_lvl'));
 function title() { K.card({ title: 'FLING FRENZY', text: 'Drag back anywhere on the screen and let go to fling a Puff (or aim with the arrows and press FLING). Knock out every Gloomy hiding in the forts. Glass breaks easily, wood takes a few hits, stone is tough. Every Puff explodes when it lands, with a bigger blast on a direct hit. Special Puffs: yellow speeds up, blue splits in three, black is a super bomb. Tap the screen while it flies!', best: best ? 'BEST ' + best : '', button: 'Level ' + unlocked, onStart: () => { score = 0; load(unlocked - 1); state = 'play'; } }); }
 function load(i) {
-  lvl = i % LEVELS.length; world = pl.World({ gravity: V(0, -10) }); bodies = []; fx = []; pops = []; levelScore = 0; settleT = 1.2; cur = null; aim = { ang: 0.6, pow: 0.75, drag: null }; endT = 0; intro = 1.6; watchT = 0; cam.x = fortX() - W / S / 2; cam.y = 0;
+  lvl = i % LEVELS.length; world = pl.World({ gravity: V(0, -10) }); bodies = []; fx = []; pops = []; levelScore = 0; settleT = 1.2; cur = null; aim = { ang: 0.6, pow: 0.75, drag: null }; endT = 0; intro = 2.4; watchT = 0; cam.y = 0;
   const g = world.createBody(); g.createFixture(pl.Edge(V(-20, 0), V(80, 0)), { friction: 0.9 }); g.setUserData({ kind: 'ground' });
   const L = []; LEVELS[lvl].build(L);
   L.forEach(it => {
@@ -50,6 +52,7 @@ function load(i) {
   world.on('begin-contact', c => { const a = c.getFixtureA().getBody(), b = c.getFixtureB().getBody(); [[a, b], [b, a]].forEach(([me, other]) => { const u = me.getUserData(), o = other.getUserData(); if (u && u.kind === 'puff' && !u.hit) u.hit = o && (o.kind === 'block' || o.kind === 'gloom') ? 'direct' : 'ground'; }); });
   world.on('post-solve', (c, imp) => { if (settleT > 0) return; const f = imp.normalImpulses[0] || 0; if (f < 0.6) return; [c.getFixtureA().getBody(), c.getFixtureB().getBody()].forEach(b => { const u = b.getUserData(); if (u && (u.kind === 'block' || u.kind === 'gloom')) u.hp -= (f - 0.4) * (u.kind === 'gloom' ? 0.9 : 0.6); }); });
   puffList = LEVELS[lvl].puffs.slice(); nextPuff();
+  const fs = fortSpan(); cam.z = S = fortZoom(fs); cam.x = (fs[0] + fs[1]) / 2 - W / S / 2;
 }
 function nextPuff() { if (!puffList.length) { cur = null; return; } cur = { kind: puffList.shift(), body: null, state: 'ready' }; abilityUsed = false; flightT = 0; restT = 0; }
 function gloomsLeft() { return bodies.filter(b => b.getUserData().kind === 'gloom').length; }
@@ -82,20 +85,27 @@ function blowPuff(b, how) {
   world.destroyBody(b);
   if (cur) { if (cur.body === b) cur.body = null; cur.extra = (cur.extra || []).filter(e => e !== b); }
 }
+function fortSpan() { let x0 = 99, x1 = 0; bodies.forEach(b => { const x = b.getPosition().x; x0 = Math.min(x0, x); x1 = Math.max(x1, x); }); return x1 ? [x0, x1] : [16, 20]; }
+function fortZoom(fs) { return K.clamp(W / (fs[1] - fs[0] + 3.6), 17, 34); }
 function fortX() { let x0 = 99, x1 = 0; bodies.forEach(b => { const x = b.getPosition().x; x0 = Math.min(x0, x); x1 = Math.max(x1, x); }); return x1 ? (x0 + x1) / 2 : 18; }
 function addFx(x, y, c, n) { for (let i = 0; i < n; i++) fx.push({ x, y, vx: K.rnd(-5, 5), vy: K.rnd(-1, 7), t: K.rnd(0.4, 0.9), c }); }
 function sx(x) { return (x - cam.x) * S; } function sy(y) { return GROUND - (y - cam.y) * S; }
 // camera: shows the fort at the start, sits on the slingshot while aiming, then chases the Puff and lingers on the crash
 function moveCam(dt) {
-  const vw = W / S; let tx = SLING.x - 2.2, ty = 0;
-  if (intro > 0.7) tx = fortX() - vw / 2;
+  let ax, ay = null, fx = 0.5, tz = ZSLING;
+  if (intro > 0.9) { const fs = fortSpan(); tz = fortZoom(fs); ax = (fs[0] + fs[1]) / 2; }
   else if (cur && cur.state === 'fly') {
-    const all = [cur.body, ...(cur.extra || [])].filter(Boolean);
-    if (all.length) { const p = all[0].getPosition(); tx = p.x - vw * 0.4; ty = Math.max(0, p.y - 4.2); }
-    else if (watchAt) { tx = watchAt.x - vw / 2; ty = Math.max(0, watchAt.y - 3.4); }
-  } else if (watchT > 0 && watchAt) { tx = watchAt.x - vw / 2; ty = Math.max(0, watchAt.y - 3.4); }
-  tx = K.clamp(tx, -1, 34 - vw);
-  const k = cur && cur.state === 'fly' && cur.body ? 1 - Math.pow(0.0005, dt) : 1 - Math.pow(0.04, dt);
+    tz = ZFLY; const all = [cur.body, ...(cur.extra || [])].filter(Boolean);
+    if (all.length) { const p = all[0].getPosition(); ax = p.x; fx = 0.38; ay = p.y; tz = K.clamp(GROUND / (p.y + 3.2), 17, ZFLY); }
+    else if (watchAt) { tz = ZWATCH; ax = watchAt.x; ay = watchAt.y; }
+    else ax = cam.x + W / S / 2;
+  } else if (watchT > 0 && watchAt) { tz = ZWATCH; ax = watchAt.x; ay = watchAt.y; }
+  else { ax = SLING.x; fx = 0.42; }
+  const fast = cur && cur.state === 'fly' && cur.body;
+  cam.z += (tz - cam.z) * (1 - Math.pow(fast ? 0.02 : 0.03, dt)); S = cam.z;
+  const vw = W / S, vh = GROUND / S;
+  let tx = K.clamp(ax - vw * fx, -1, 34 - vw), ty = ay == null ? 0 : Math.max(0, ay - vh * 0.55);
+  const k = fast ? 1 - Math.pow(0.0005, dt) : 1 - Math.pow(0.04, dt);
   cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
 }
 function update(dt) {
@@ -109,7 +119,7 @@ function update(dt) {
   if (cur && cur.state === 'ready') {
     if (K.down('up')) aim.ang = Math.min(1.45, aim.ang + dt * 0.9); if (K.down('down')) aim.ang = Math.max(-0.4, aim.ang - dt * 0.9);
     if (K.down('right')) aim.pow = Math.min(1, aim.pow + dt * 0.6); if (K.down('left')) aim.pow = Math.max(0.1, aim.pow - dt * 0.6);
-    if (K.ptr.down) { if (!aim.drag) aim.drag = { x: K.ptr.x, y: K.ptr.y }; const dx = aim.drag.x - K.ptr.x, dy = K.ptr.y - aim.drag.y, d = Math.hypot(dx, dy); if (d > 6) { aim.ang = Math.atan2(dy, dx); aim.pow = Math.min(1, d / 110); intro = 0; } }
+    if (K.ptr.down) { if (!aim.drag) aim.drag = { x: K.ptr.x, y: K.ptr.y }; const dx = aim.drag.x - K.ptr.x, dy = K.ptr.y - aim.drag.y, d = Math.hypot(dx, dy); if (d > 6) { aim.ang = Math.atan2(dy, dx); aim.pow = Math.min(1, d / 90); intro = 0; } }
     else if (aim.drag) { const moved = aim.pow; aim.drag = null; if (moved > 0.08) fling(); }
     if (K.hit('a')) fling();
   } else if (cur && cur.state === 'fly') {
@@ -188,8 +198,8 @@ function draw(c, t) {
   const camPx = cam.x * S, camPy = cam.y * S;
   c.save(); if (shake > 0) c.translate(K.rnd(-1, 1) * shake * 20, K.rnd(-1, 1) * shake * 20);
   // sun, clouds, far mountains, rolling hills with trees: each layer scrolls at its own speed
-  c.fillStyle = 'rgba(255,250,210,.9)'; c.beginPath(); c.arc(W - 70 - camPx * 0.02, 50 + camPy * 0.1, 22, 0, 7); c.fill();
-  c.fillStyle = 'rgba(255,255,255,.85)'; for (let i = 0; i < 6; i++) { const ox = ((i * 170 + t / (70 + i * 25) - camPx * 0.1) % (W + 160) + W + 160) % (W + 160) - 80, y = 30 + (i % 3) * 22 + camPy * 0.15; c.beginPath(); c.arc(ox, y, 16, 0, 7); c.arc(ox + 18, y - 8, 20, 0, 7); c.arc(ox + 40, y, 15, 0, 7); c.ellipse(ox + 20, y + 5, 30, 9, 0, 0, 7); c.fill(); }
+  c.fillStyle = 'rgba(255,250,210,.9)'; c.beginPath(); c.arc(W - 60 - camPx * 0.02, 60 + camPy * 0.1, 22, 0, 7); c.fill();
+  c.fillStyle = 'rgba(255,255,255,.85)'; for (let i = 0; i < 6; i++) { const ox = ((i * 170 + t / (70 + i * 25) - camPx * 0.1) % (W + 160) + W + 160) % (W + 160) - 80, y = 30 + (i % 3) * 40 + camPy * 0.15; c.beginPath(); c.arc(ox, y, 16, 0, 7); c.arc(ox + 18, y - 8, 20, 0, 7); c.arc(ox + 40, y, 15, 0, 7); c.ellipse(ox + 20, y + 5, 30, 9, 0, 0, 7); c.fill(); }
   const layer = (f, base, amp, col, freq) => { c.fillStyle = col; c.beginPath(); c.moveTo(0, H); for (let x = 0; x <= W + 10; x += 8) { const wx = x + camPx * f; c.lineTo(x, base + camPy * f - amp * (0.6 * Math.sin(wx / freq) + 0.4 * Math.sin(wx / (freq * 0.43) + 1))); } c.lineTo(W, H); c.fill(); };
   layer(0.15, GROUND - 70, 40, '#9ab8d8', 140); layer(0.3, GROUND - 40, 26, '#7ab87a', 110);
   // tree line on the near hills
@@ -200,25 +210,28 @@ function draw(c, t) {
   for (let i = Math.floor(camPx / 12) - 1; i < Math.floor((camPx + W) / 12) + 2; i++) { const x = i * 12 - camPx; c.fillStyle = '#4a8a3a'; c.beginPath(); c.moveTo(x, gy); c.lineTo(x + 2, gy - 5 - hsh(i, 3) * 4); c.lineTo(x + 4, gy); c.fill(); if (hsh(i, 4) < 0.25) { c.fillStyle = '#9a8a7a'; c.beginPath(); c.ellipse(x + 6, gy + 12 + hsh(i, 5) * 10, 3, 2, 0, 0, 7); c.fill(); } if (hsh(i, 6) < 0.08) { c.fillStyle = ['#ffd23a', '#ff6a8a', '#fff'][i % 3]; c.beginPath(); c.arc(x + 3, gy - 6, 1.6, 0, 7); c.fill(); } }
   if (!world) { c.restore(); return; }
   // slingshot: a Y of wood wrapped in rope
-  const bx = sx(SLING.x), by = sy(SLING.y);
+  const bx = sx(SLING.x), by = sy(SLING.y), q = S / 36;
   const wood = (x0, y0, x1, y1, wdt) => { c.strokeStyle = 'rgba(20,12,8,.85)'; c.lineWidth = wdt + 2.4; c.lineCap = 'round'; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke(); c.strokeStyle = '#8a5a2a'; c.lineWidth = wdt; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke(); c.strokeStyle = '#b07a42'; c.lineWidth = wdt * 0.35; c.beginPath(); c.moveTo(x0 - wdt * 0.2, y0); c.lineTo(x1 - wdt * 0.2, y1); c.stroke(); };
-  wood(bx, gy, bx, by + 24, 11); wood(bx, by + 26, bx - 18, by - 6, 8);
-  c.fillStyle = '#d8c090'; for (let k = 0; k < 3; k++) c.fillRect(bx - 6, by + 24 + k * 3.5, 12, 2);
+  wood(bx, gy, bx, by + 24 * q, 11 * q); wood(bx, by + 26 * q, bx - 18 * q, by - 6 * q, 8 * q);
+  c.fillStyle = '#d8c090'; for (let k = 0; k < 3; k++) c.fillRect(bx - 6 * q, by + (24 + k * 3.5) * q, 12 * q, 2 * q);
+  c.fillStyle = '#6a4020'; c.beginPath(); c.arc(bx - 18 * q, by - 6 * q, 3 * q, 0, 7); c.arc(bx + 16 * q, by - 6 * q, 3 * q, 0, 7); c.fill();
   // trajectory preview
-  if (cur && cur.state === 'ready' && state === 'play') { const v = launchVec(); for (let i = 1; i < 16; i++) { const tt = i * 0.055; const x = SLING.x + v.x * tt, y = SLING.y + v.y * tt - 5 * tt * tt; c.fillStyle = 'rgba(255,255,255,' + (0.95 - i * 0.05) + ')'; c.beginPath(); c.arc(sx(x), sy(y), 3.6 - i * 0.16, 0, 7); c.fill(); }
+  if (cur && cur.state === 'ready' && state === 'play') { const v = launchVec(); for (let i = 1; i < 16; i++) { const tt = i * 0.055; const x = SLING.x + v.x * tt, y = SLING.y + v.y * tt - 5 * tt * tt; c.fillStyle = 'rgba(255,255,255,' + (0.95 - i * 0.05) + ')'; c.beginPath(); c.arc(sx(x), sy(y), (3.6 - i * 0.16) * Math.min(1.3, q), 0, 7); c.fill(); }
     const pull = 1 + aim.pow * 1.4, px = bx - Math.cos(aim.ang) * pull * S * 0.6, py = by + Math.sin(aim.ang) * pull * S * 0.6;
-    c.strokeStyle = '#3a2210'; c.lineWidth = 4; c.beginPath(); c.moveTo(bx - 18, by - 4); c.lineTo(px, py); c.stroke();
+    c.strokeStyle = '#3a2210'; c.lineWidth = 4 * q; c.beginPath(); c.moveTo(bx - 18 * q, by - 4 * q); c.lineTo(px, py); c.stroke();
+    c.fillStyle = '#5a3418'; c.beginPath(); c.ellipse(px - Math.cos(aim.ang) * 5 * q, py + Math.sin(aim.ang) * 5 * q, 6 * q, 9 * q, -aim.ang, 0, 7); c.fill();
     drawPuff(c, px, py, PUFF[cur.kind].r, cur.kind, 0);
-    c.strokeStyle = '#3a2210'; c.lineWidth = 4; c.beginPath(); c.moveTo(px, py); c.lineTo(bx + 16, by - 4); c.stroke(); c.lineWidth = 1;
-    if (PUFF[cur.kind].tip !== 'normal') K.text(c, PUFF[cur.kind].tip, bx + 30, by - 60, 11, '#1a2a3a'); }
+    c.strokeStyle = '#3a2210'; c.lineWidth = 4 * q; c.beginPath(); c.moveTo(px, py); c.lineTo(bx + 16 * q, by - 4 * q); c.stroke(); c.lineWidth = 1;
+    if (PUFF[cur.kind].tip !== 'normal') K.text(c, PUFF[cur.kind].tip, W / 2, 22, 11, '#1a2a3a');
+    if (intro <= 0.9) { const fxp = sx(fortX()); if (fxp > W - 10) { const ay = sy(1.6) - 30, bob = Math.sin(t / 200) * 3; c.fillStyle = 'rgba(20,30,50,.55)'; c.beginPath(); c.roundRect ? c.roundRect(W - 62 + bob, ay - 12, 56, 24, 8) : c.rect(W - 62 + bob, ay - 12, 56, 24); c.fill(); K.text(c, 'FORT ▶', W - 34 + bob, ay, 10, '#fff'); } } }
   // fort pieces and Gloomies
   bodies.forEach(b => { const u = b.getUserData(), p = b.getPosition(), a = b.getAngle(), X = sx(p.x), Y = sy(p.y); if (X < -80 || X > W + 80) return; c.save(); c.translate(X, Y); c.rotate(-a); if (u.kind === 'block') drawBlock(c, u, t); else drawGloom(c, u, t); c.restore(); });
   if (cur && cur.body) { const p = cur.body.getPosition(), v = cur.body.getLinearVelocity(); for (let k = 1; k < 5; k++) { c.fillStyle = 'rgba(255,255,255,' + (0.35 - k * 0.07) + ')'; c.beginPath(); c.arc(sx(p.x - v.x * k * 0.025), sy(p.y - v.y * k * 0.025), PUFF[cur.kind].r * S * (1 - k * 0.15), 0, 7); c.fill(); } drawPuff(c, sx(p.x), sy(p.y), PUFF[cur.kind].r, cur.kind, -cur.body.getAngle()); }
   if (cur && cur.extra) cur.extra.forEach(b => { const p = b.getPosition(); drawPuff(c, sx(p.x), sy(p.y), PUFF.split.r, 'split', -b.getAngle()); });
   // slingshot front arm
-  wood(bx, by + 26, bx + 16, by - 6, 8);
+  wood(bx, by + 26 * q, bx + 16 * q, by - 6 * q, 8 * q);
   // waiting Puffs line up behind the slingshot
-  puffList.forEach((k, i) => drawPuff(c, bx - 40 - i * 32, gy - PUFF[k].r * S, PUFF[k].r, k, Math.sin(t / 300 + i) * 0.1));
+  puffList.forEach((k, i) => drawPuff(c, bx - 1.1 * S - i * 0.8 * S, gy - PUFF[k].r * S, PUFF[k].r, k, Math.sin(t / 300 + i) * 0.1));
   fx.forEach(e => {
     if (e.ring) { c.strokeStyle = 'rgba(255,200,90,' + e.t * 2 + ')'; c.lineWidth = 5; c.beginPath(); c.arc(sx(e.x), sy(e.y), (0.4 - e.t) * (e.rad || 3) * S * 2.2 + 8, 0, 7); c.stroke(); c.lineWidth = 1; }
     else if (e.flash) { const r = (e.rad || 2) * S * 0.8, gg = c.createRadialGradient(sx(e.x), sy(e.y), 0, sx(e.x), sy(e.y), r); gg.addColorStop(0, 'rgba(255,255,220,' + e.t * 5 + ')'); gg.addColorStop(0.4, 'rgba(255,190,60,' + e.t * 4 + ')'); gg.addColorStop(1, 'rgba(255,120,40,0)'); c.fillStyle = gg; c.beginPath(); c.arc(sx(e.x), sy(e.y), r, 0, 7); c.fill(); }
