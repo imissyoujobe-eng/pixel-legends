@@ -1,10 +1,9 @@
 // Offline cache for Pixel Legends. Bump VERSION whenever you add or change a game.
-const VERSION = "legends-v17";
+const VERSION = "legends-v18";
 const FILES = [
  "./",
  "./games.js",
  "./games/agent-zero.html",
- "./games/axe-and-sorcery.html",
  "./games/barbarian-blade.html",
  "./games/barnyard-brigade.html",
  "./games/cloud-castle.html",
@@ -13,9 +12,7 @@ const FILES = [
  "./games/cube-pop.html",
  "./games/deep-core.html",
  "./games/diamond-dash.html",
- "./games/door-runner.html",
  "./games/fairway-nine.html",
- "./games/fist-city.html",
  "./games/fling-frenzy.html",
  "./games/girder-gauntlet.html",
  "./games/hollow-crown.html",
@@ -35,7 +32,6 @@ const FILES = [
  "./games/saddle-up.html",
  "./games/shadow-strike.html",
  "./games/sky-tail.html",
- "./games/street-brawl.html",
  "./games/three-day-tide.html",
  "./games/twin-realms.html",
  "./games/vine-kings.html",
