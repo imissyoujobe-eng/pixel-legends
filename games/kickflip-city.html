@@ -196,7 +196,9 @@ function stepGround(dt) {
   sk.s -= GRAV * (sf.s / n) * dt; sk.s *= Math.pow(0.93, dt);
   const nx = sk.x + sk.s / n * dt;
   // past the lip of a half-pipe: go vert into the air
-  if (nx <= -LIP + 0.3 || nx >= LIP - 0.3) { sk.x = nx < 0 ? -LIP + 0.3 : LIP - 0.3; leaveGround(0, Math.abs(sk.s) + (K.down('a') ? 4 : 0)); sk.y = R - 0.2; sk.dir = nx < 0 ? 1 : -1; return; }
+  // near the top of the wall the ramp is almost vertical: launch straight up out of the half-pipe (vert air)
+  const steepUp = Math.abs(sf.s) > 3.5 && Math.sign(sk.s) === Math.sign(sf.s) && Math.sign(sf.s) === Math.sign(sk.x);
+  if (nx <= -LIP + 0.3 || nx >= LIP - 0.3 || steepUp) { sk.x = nx < 0 ? -LIP + 0.35 : LIP - 0.35; leaveGround(0, Math.abs(sk.s) * 1.35 + 3 + (K.down('a') ? 5 : 0)); sk.y = R - 0.2; sk.dir = nx < 0 ? 1 : -1; return; }
   sk.x = nx; sf = surf(sk.x); sk.y = sf.h; if (Math.abs(sk.s) > 0.5) sk.dir = Math.sign(sk.s);
 }
 function stepGrind(dt) {
@@ -235,7 +237,7 @@ function render(dt) {
     arms.forEach((a, i) => { a.rotation.x = (i ? -1 : 1) * (sk.air ? 1.2 : 0.5); a.rotation.z = sk.grabT && i ? 1.6 : 0; });
     letters.forEach((L, i) => { L.m.position.y = L.y + Math.sin(t / 300 + i) * 0.3; L.m.lookAt(camera.position); });
     // camera: beside you, about 10 ft up, looking down ~45 degrees, always from the same side; it rises a bit on big air
-    const lift = Math.max(0, sk.y - 6) * 0.55, want = new THREE.Vector3(sk.x + sk.vx * 0.05, 10 + lift + Math.max(0, sf.h * 0.3), 12.5), look = new THREE.Vector3(sk.x + (sk.air ? 0 : (Math.sign(sk.s) * Math.min(3, Math.abs(sk.s) * 0.12))), sk.y * 0.75 + 1.5, 0);
+    const lift = Math.max(0, sk.y - 4) * 0.85, want = new THREE.Vector3(K.clamp(sk.x, -52, 52) + sk.vx * 0.05, 10 + lift, 13.5), look = new THREE.Vector3(sk.x + (sk.air ? 0 : (Math.sign(sk.s) * Math.min(3, Math.abs(sk.s) * 0.12))), sk.y + 1.2, 0);
     camPos.lerp(want, 1 - Math.pow(0.004, dt)); camLook.lerp(look, 1 - Math.pow(0.002, dt));
     camera.position.copy(camPos); camera.lookAt(camLook);
   }
