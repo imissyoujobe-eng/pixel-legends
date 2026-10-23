@@ -1,17 +1,15 @@
 // The game list for the Pixel Legends menu.
 // To add a game: put its file in games/ and add one line below.
-window.ARCADE_TOTAL = 33;
+window.ARCADE_TOTAL = 31;
 window.ARCADE_GAMES = [
   { id: 'pipe-hopper', name: 'Pipe Hopper', genre: 'Platform', tag: 'Run, jump and stomp to the flag' },
   { id: 'hollow-crown', name: 'Hollow Crown', genre: 'Adventure', tag: 'Sword quest for the lost crown' },
   { id: 'kart-clash', name: 'Kart Clash', genre: 'Racing', tag: '3D kart cup with items' },
   { id: 'wing-squadron', name: 'Wing Squadron', genre: 'Action', tag: '3D space dogfights' },
   { id: 'sky-tail', name: 'Sky Tail', genre: 'Platform', tag: 'World map, tail flight' },
-  { id: 'critter-quest', name: 'Critter Quest', genre: 'Adventure', tag: 'Catch critters, beat the champ' },
   { id: 'hyper-rail', name: 'Hyper Rail', genre: 'Racing', tag: 'Futuristic hover Grand Prix' },
   { id: 'agent-zero', name: 'Agent Zero', genre: 'Action', tag: 'First-person spy missions' },
   { id: 'saddle-up', name: 'Saddle Up', genre: 'Platform', tag: 'Ride your dino buddy' },
-  { id: 'twin-realms', name: 'Twin Realms', genre: 'Adventure', tag: 'Flip between light and shadow' },
   { id: 'knockout-kid', name: 'Knockout Kid', genre: 'Action', tag: 'Box your way to the title' },
   { id: 'vine-kings', name: 'Vine Kings', genre: 'Platform', tag: 'Jungle romp and mine carts' },
   { id: 'deep-core', name: 'Deep Core', genre: 'Adventure', tag: 'Explore the alien base' },
