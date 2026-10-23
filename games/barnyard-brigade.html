@@ -24,7 +24,12 @@ const WEAPONS = [
   { n: 'RIFLE', r: 0, dmg: 24, ammo: 99, range: 150 },
   { n: 'BAZOOKA', r: 22, dmg: 45, ammo: 99, elev: 0.6, cam: true },
   { n: 'GRENADE', r: 24, dmg: 50, ammo: 3, elev: 0.95, fuse: 3, cam: true },
-  { n: 'MISSILE', r: 30, dmg: 60, ammo: 1, cam: true, missile: true }
+  { n: 'MISSILE', r: 30, dmg: 60, ammo: 1, cam: true, missile: true },
+  { n: 'MACHINE GUN', r: 0, dmg: 9, ammo: 99, range: 170, mg: true },
+  { n: 'SHOTGUN', r: 0, dmg: 11, ammo: 99, range: 95, shotgun: true },
+  { n: 'KNIFE', r: 0, dmg: 60, ammo: 99, knife: true },
+  { n: 'HELLFIRE', r: 22, dmg: 42, ammo: 1, cam: true, hellfire: true },
+  { n: 'AIRSTRIKE', r: 20, dmg: 40, ammo: 1, cam: true, airstrike: true }
 ];
 const NAMES = [['Billy', 'Nanny', 'Butch', 'Gruff'], ['Red', 'Rusty', 'Colonel', 'Dusty']];
 
@@ -110,7 +115,12 @@ function build() {
   for (let i = 0; i < 10; i++) { const x = -40 + i * 9, z = -95; const post = new THREE.Mesh(new THREE.BoxGeometry(0.8, 4, 0.8), mat(0xe8d8c0)); post.position.set(x, hAt(x, z) + 2, z); scene.add(post); if (i) { const rail = new THREE.Mesh(new THREE.BoxGeometry(9, 0.6, 0.4), mat(0xe8d8c0)); rail.position.set(x - 4.5, hAt(x, z) + 3, z); scene.add(rail); } }
   for (let i = 0; i < 6; i++) { const x = -30 + A.hash(i, 9) * 60, z = 80 + A.hash(i, 8) * 30; if (hAt(x, z) < 2) continue; const hay = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 4, 12), mat(0xe8c060)); hay.rotation.z = Math.PI / 2; hay.position.set(x, hAt(x, z) + 2.4, z); scene.add(hay); }
   // target reticle on the ground
-  reticle = new THREE.Group(); const rm = new THREE.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0.9, depthTest: false }); const ring = new THREE.Mesh(new THREE.RingGeometry(4, 5, 28), rm); ring.rotation.x = -Math.PI / 2; reticle.add(ring); for (let k = 0; k < 4; k++) { const tick = new THREE.Mesh(new THREE.PlaneGeometry(1, 4), rm); tick.rotation.x = -Math.PI / 2; tick.rotation.z = k * Math.PI / 2; tick.position.set(Math.cos(k * Math.PI / 2) * 7, 0, Math.sin(k * Math.PI / 2) * 7); reticle.add(tick); } reticle.renderOrder = 5; scene.add(reticle);
+  reticle = new THREE.Group(); const rm = new THREE.MeshBasicMaterial({ color: 0x8a0000, transparent: true, opacity: 0.95, depthTest: false }), rk = new THREE.MeshBasicMaterial({ color: 0x1a0000, transparent: true, opacity: 0.6, depthTest: false });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(8, 10.5, 40), rm); ring.rotation.x = -Math.PI / 2; reticle.add(ring);
+  const ring2 = new THREE.Mesh(new THREE.RingGeometry(10.5, 11.6, 40), rk); ring2.rotation.x = -Math.PI / 2; reticle.add(ring2);
+  const dot = new THREE.Mesh(new THREE.CircleGeometry(1.8, 16), rm); dot.rotation.x = -Math.PI / 2; reticle.add(dot);
+  for (let k = 0; k < 4; k++) { const tick = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 9), rm); tick.rotation.x = -Math.PI / 2; tick.rotation.z = k * Math.PI / 2; tick.position.set(Math.cos(k * Math.PI / 2) * 14, 0, Math.sin(k * Math.PI / 2) * 14); reticle.add(tick); }
+  reticle.children.forEach(m => m.renderOrder = 5); reticle.renderOrder = 5; scene.add(reticle);
   camPos = new THREE.Vector3(0, 280, 190); camLook = new THREE.Vector3(0, 0, 10);
 }
 // ---------- soldiers ----------
@@ -180,10 +190,35 @@ function fire(u, tx, tz, wi) {
   const w = WEAPONS[wi]; if (ammo[u.team][wi] <= 0) return false;
   ammo[u.team][wi]--; aiming = false;
   u.yaw = Math.atan2(-(tz - u.z), tx - u.x);
-  const sx = u.x + Math.cos(u.yaw) * 11, sz = u.z - Math.sin(u.yaw) * 11, sy = u.y + 14;
+  const sx = u.x + Math.cos(u.yaw) * 11, sz = u.z - Math.sin(u.yaw) * 11, sy = u.y + 14, n0 = shots.length;
+  if (w.knife) { // knife: close-range stab on the nearest enemy
+    const foe = units.filter(v => v.alive && v.team !== u.team).sort((a, b) => Math.hypot(a.x - u.x, a.z - u.z) - Math.hypot(b.x - u.x, b.z - u.z))[0];
+    if (!foe || Math.hypot(foe.x - u.x, foe.z - u.z) > 24) { ammo[u.team][wi]++; say('GET CLOSER TO STAB!', 1.2); K.beep(200, 0.08, { vol: 0.04 }); return false; }
+    u.yaw = Math.atan2(-(foe.z - u.z), foe.x - u.x); const a = Math.atan2(foe.z - u.z, foe.x - u.x);
+    damage(foe, w.dmg, Math.cos(a) * 25, Math.sin(a) * 25); puff(foe.x, foe.y + 8, foe.z, 0xffffff, 3, 0.4); K.noise(0.12, 0.25); K.beep(1400, 0.06, { type: 'triangle', to: 300, vol: 0.06 });
+    phase = 'settle'; settleT = 0.9; return true;
+  }
+  if (w.mg || w.shotgun) { // machine gun: long burst; shotgun: wide close-range spread
+    const ty = hAt(tx, tz) + 8, d = Math.hypot(tx - sx, ty - sy, tz - sz) || 1, n = w.mg ? 10 : 7, sp = w.mg ? 6 : 26;
+    for (let k = 0; k < n; k++) shots.push({ x: sx, y: sy, z: sz, vx: (tx - sx) / d * 380 + K.rnd(-sp, sp), vy: (ty - sy) / d * 380 + K.rnd(-sp * 0.4, sp * 0.4), vz: (tz - sz) / d * 380 + K.rnd(-sp, sp), w: wi, t: w.mg ? -k * 0.07 : 0, life: w.range / 380, team: u.team, straight: true });
+    if (w.mg) for (let k = 0; k < n; k++) K.beep(1000, 0.03, { type: 'square', to: 300, vol: 0.04, at: k * 0.07 }); else K.noise(0.25, 0.35);
+    phase = 'fly'; return true;
+  }
+  if (w.hellfire) { // three guided missiles dive from the sky around the target
+    for (let k = 0; k < 3; k++) { const ox = (k - 1) * 10, oz = (k % 2 ? 8 : -4), s0 = { x: tx - 90 + k * 18, y: 175 + k * 12, z: tz + 50 - k * 22, tx: tx + ox, tz: tz + oz, w: wi, t: -k * 0.35, missile: true, team: u.team, m: rocketMesh(0x6a6a5a) }; s0.m.position.set(s0.x, s0.y, s0.z); shots.push(s0); }
+    K.beep(1300, 0.6, { type: 'sine', to: 300, vol: 0.05 }); say('HELLFIRE AWAY!', 1.2);
+    phase = 'fly'; killCam = { follow: shots[n0], hit: null, t: 0, ox: tx - 90, oz: tz + 50 }; return true;
+  }
+  if (w.airstrike) { // a jet streaks over and drops a line of bombs through the target
+    const dx = tx - u.x, dz = tz - u.z, dd = Math.hypot(dx, dz) || 1, fx0 = dx / dd, fz0 = dz / dd;
+    for (let k = 0; k < 5; k++) { const bx = tx + fx0 * (k - 2) * 13, bz = tz + fz0 * (k - 2) * 13, s0 = { x: bx - fx0 * 20, y: hAt(bx, bz) + 120, z: bz - fz0 * 20, vx: fx0 * 22, vy: -15, vz: fz0 * 22, w: wi, t: -0.6 - k * 0.2, team: u.team, m: rocketMesh(0x3a3a3a) }; s0.m.position.set(s0.x, -50, s0.z); shots.push(s0); }
+    const jet = jetMesh(); jet.position.set(tx - fx0 * 170, 135, tz - fz0 * 170); jet.rotation.y = Math.atan2(-fz0, fx0); fx.push({ mesh: jet, jet: true, vx: fx0 * 150, vz: fz0 * 150, l: 2.6 });
+    K.noise(1.2, 0.25); K.beep(180, 1.2, { type: 'sawtooth', to: 90, vol: 0.04 }); say('AIRSTRIKE INBOUND!', 1.3);
+    phase = 'fly'; killCam = { follow: shots[n0], hit: null, t: 0, ox: u.x, oz: u.z }; return true;
+  }
   if (wi === 0) { // rifle: straight and fast, three-round burst
     const ty = hAt(tx, tz) + 8, d = Math.hypot(tx - sx, ty - sy, tz - sz) || 1;
-    for (let k = 0; k < 3; k++) shots.push({ x: sx, y: sy, z: sz, vx: (tx - sx) / d * 360 + K.rnd(-8, 8), vy: (ty - sy) / d * 360 + K.rnd(-4, 4), vz: (tz - sz) / d * 360 + K.rnd(-8, 8), w: 0, t: -k * 0.12, life: w.range / 360, team: u.team });
+    for (let k = 0; k < 3; k++) shots.push({ x: sx, y: sy, z: sz, vx: (tx - sx) / d * 360 + K.rnd(-8, 8), vy: (ty - sy) / d * 360 + K.rnd(-4, 4), vz: (tz - sz) / d * 360 + K.rnd(-8, 8), w: 0, t: -k * 0.12, life: w.range / 360, team: u.team, straight: true });
     K.beep(900, 0.05, { type: 'square', to: 200, vol: 0.05 });
   } else if (w.missile) { // missile: comes down from the sky onto the target
     shots.push({ x: tx - 80, y: 160, z: tz + 40, tx, tz, w: wi, t: 0, missile: true, team: u.team, m: rocketMesh(0xd0d0dc) });
@@ -193,7 +228,18 @@ function fire(u, tx, tz, wi) {
     shots.push({ x: sx, y: sy, z: sz, vx: v.x, vy: v.y, vz: v.z, w: wi, t: 0, fuse: w.fuse || 0, team: u.team, m: wi === 1 ? rocketMesh(0x4a5a3a) : grenadeMesh() });
     K.beep(220, 0.15, { type: 'square', to: 500, vol: 0.06 }); K.noise(0.15, 0.2);
   }
-  phase = 'fly'; if (w.cam) killCam = { follow: shots[shots.length - 1], hit: null, t: 0, ox: w.missile ? tx - 80 : u.x, oz: w.missile ? tz + 40 : u.z }; return true;
+  phase = 'fly'; if (w.cam) killCam = { follow: shots[n0], hit: null, t: 0, ox: w.missile ? tx - 80 : u.x, oz: w.missile ? tz + 40 : u.z }; return true;
+}
+function jetMesh() {
+  const g = new THREE.Group(), body = mat(0x5a6a7a), dark = mat(0x2a3440);
+  const f = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 2.4, 24, 8), body); f.rotation.z = Math.PI / 2; g.add(f);
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(1.6, 6, 8), dark); nose.rotation.z = -Math.PI / 2; nose.position.x = 15; g.add(nose);
+  const wing = new THREE.Mesh(new THREE.BoxGeometry(9, 0.6, 30), body); wing.position.x = -1; g.add(wing);
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(5, 0.5, 12), body); tail.position.x = -11; g.add(tail);
+  const fin = new THREE.Mesh(new THREE.BoxGeometry(5, 6, 0.5), dark); fin.position.set(-11, 3, 0); g.add(fin);
+  const glass = new THREE.Mesh(new THREE.SphereGeometry(1.5, 8, 6), mat(0x6ad0ff)); glass.scale.set(2, 0.8, 0.8); glass.position.set(8, 1.6, 0); g.add(glass);
+  const burn = new THREE.Mesh(new THREE.ConeGeometry(1.5, 6, 8), new THREE.MeshBasicMaterial({ color: 0xffb02e })); burn.rotation.z = Math.PI / 2; burn.position.x = -15; g.add(burn);
+  scene.add(g); return g;
 }
 function rocketMesh(col) { const g = new THREE.Group(); const b = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 4, 8), mat(col)); b.rotation.z = Math.PI / 2; g.add(b); const nose = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.4, 8), mat(0xd83a3a)); nose.rotation.z = -Math.PI / 2; nose.position.x = 2.6; g.add(nose); const flame = new THREE.Mesh(new THREE.ConeGeometry(0.5, 2.2, 8), new THREE.MeshBasicMaterial({ color: 0xffb02e })); flame.rotation.z = Math.PI / 2; flame.position.x = -3; g.add(flame); scene.add(g); return g; }
 function grenadeMesh() { const g = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), mat(0x3a5a2a)); const pin = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.12, 4, 8), mat(0xc8c8c8)); pin.position.y = 1.1; g.add(pin); scene.add(g); return g; }
@@ -201,16 +247,16 @@ function stepShot(s, dt) {
   s.t += dt; if (s.t < 0) return;
   const w = WEAPONS[s.w];
   if (s.missile) { const dx = s.tx - s.x, dy = hAt(s.tx, s.tz) - s.y, dz = s.tz - s.z, d = Math.hypot(dx, dy, dz) || 1, sp = 70 + s.t * 60; s.vx = dx / d * sp; s.vy = dy / d * sp; s.vz = dz / d * sp; }
-  else if (s.w !== 0) { s.vy -= GRAV * dt; s.vx += wind.x * 22 * dt; s.vz += wind.z * 22 * dt; }
+  else if (!s.straight) { s.vy -= GRAV * dt; s.vx += wind.x * 22 * dt; s.vz += wind.z * 22 * dt; }
   const n = 4;
   for (let i = 0; i < n; i++) {
     s.x += s.vx * dt / n; s.y += s.vy * dt / n; s.z += s.vz * dt / n;
-    if (s.w === 0 && (s.life -= dt / n) <= 0) return 'gone';
+    if (s.straight && (s.life -= dt / n) <= 0) return 'gone';
     if (Math.abs(s.x) > SIZE || Math.abs(s.z) > SIZE || s.y < -15) return 'gone';
     if (s.y < 0.5 && hAt(s.x, s.z) < 0) { splash(s.x, s.z); return 'gone'; }
     const hitU = units.find(u => u.alive && (s.t > 0.15 || u.team !== s.team) && Math.hypot(u.x - s.x, u.y + 9.5 - s.y, u.z - s.z) < 10);
     if (s.y <= hAt(s.x, s.z) || hitU) {
-      if (s.w === 0) { if (hitU) { damage(hitU, w.dmg, s.vx * 0.05, s.vz * 0.05); puff(s.x, s.y, s.z, 0xffffff, 4); } else puff(s.x, s.y, s.z, 0x8a6a4a, 5); return 'gone'; }
+      if (s.straight) { if (hitU) { damage(hitU, w.dmg, s.vx * 0.05, s.vz * 0.05); puff(s.x, s.y, s.z, 0xffffff, 4); } else puff(s.x, s.y, s.z, 0x8a6a4a, 5); return 'gone'; }
       if (s.fuse && !hitU) { s.y = hAt(s.x, s.z) + 1; s.vy = Math.abs(s.vy) * 0.4; s.vx *= 0.55; s.vz *= 0.55; if (Math.abs(s.vy) > 8) K.beep(400, 0.03, { vol: 0.03 }); break; }
       explode(s.x, s.y, s.z, w); return 'gone';
     }
@@ -303,7 +349,7 @@ function update(rdt) {
     if (phase === 'fly' && !shots.length) { phase = 'settle'; settleT = killCam ? 1.2 : 0.8; }
     if (phase === 'settle' && !shots.length && !moving) { settleT -= dt; if (settleT <= 0) { killCam = null; slowT = 0; nextTurn(); } }
   }
-  for (const f of fx) { f.l -= dt; if (f.mesh && !f.ball && !f.light) { f.mesh.position.x += f.vx * dt; f.mesh.position.y += f.vy * dt; f.mesh.position.z += f.vz * dt; if (f.grav) f.vy -= 60 * dt; f.mesh.material.opacity = Math.max(0, f.l / f.L) * (f.smoke ? 0.55 : 0.9); if (f.smoke) f.mesh.scale.multiplyScalar(1 + dt * 1.5); } if (f.ball) { const k = 1 - f.l / 0.55; f.mesh.scale.setScalar(f.r * (0.3 + k * 0.8)); f.mesh.material.opacity = 1 - k; f.mesh.material.color.setHex(k < 0.4 ? 0xfff0a0 : 0xff7a2a); } if (f.light) f.mesh.intensity = Math.max(0, f.l / 0.4) * 3; }
+  for (const f of fx) { f.l -= dt; if (f.jet) { f.mesh.position.x += f.vx * dt; f.mesh.position.z += f.vz * dt; continue; } if (f.mesh && !f.ball && !f.light) { f.mesh.position.x += f.vx * dt; f.mesh.position.y += f.vy * dt; f.mesh.position.z += f.vz * dt; if (f.grav) f.vy -= 60 * dt; f.mesh.material.opacity = Math.max(0, f.l / f.L) * (f.smoke ? 0.55 : 0.9); if (f.smoke) f.mesh.scale.multiplyScalar(1 + dt * 1.5); } if (f.ball) { const k = 1 - f.l / 0.55; f.mesh.scale.setScalar(f.r * (0.3 + k * 0.8)); f.mesh.material.opacity = 1 - k; f.mesh.material.color.setHex(k < 0.4 ? 0xfff0a0 : 0xff7a2a); } if (f.light) f.mesh.intensity = Math.max(0, f.l / 0.4) * 3; }
   fx = fx.filter(f => { if (f.l <= 0 && f.mesh) scene.remove(f.mesh); return f.l > 0; });
 }
 // where a screen tap meets the ground
@@ -316,7 +362,7 @@ function render(dt) {
     if (v.dead) { v.m.rotation.z = Math.min(Math.PI / 2, (v.m.rotation.z || 0) + dt * 4); v.m.position.y = v.y + 1; }
     else { v.m.rotation.z = 0; const bob = v === u && phase === 'move' ? Math.abs(Math.sin((v.step || 0))) * 0.6 : 0; v.m.position.y += bob; }
   }
-  reticle.visible = state === 'play' && aiming && (phase === 'move' || phase === 'cpu'); if (reticle.visible) { reticle.position.y = hAt(reticle.position.x, reticle.position.z) + 0.6; reticle.rotation.y = t / 900; reticle.children[0].material.color.setHex(turnTeam === 0 ? 0xffd23f : 0xff6a4a); }
+  reticle.visible = state === 'play' && aiming && (phase === 'move' || phase === 'cpu'); if (reticle.visible) { reticle.position.y = hAt(reticle.position.x, reticle.position.z) + 0.6; reticle.rotation.y = t / 900; reticle.children[0].material.color.setHex(turnTeam === 0 ? 0x8a0000 : 0xb01818); }
   water.position.y = Math.sin(t / 1200) * 0.15;
   // camera: high overhead over the whole battlefield; rides the projectile on kill-cam shots and zooms in on the hit
   let want, look;
@@ -361,13 +407,40 @@ function weaponPic(i, x, y, s) {
     const g = c.createRadialGradient(-4, -2, 1, 0, 3, 13); g.addColorStop(0, '#7a9a4a'); g.addColorStop(1, '#2a4a1a'); c.fillStyle = g; c.beginPath(); c.ellipse(0, 3, 11, 13, 0, 0, 7); c.fill();
     c.strokeStyle = 'rgba(0,0,0,.4)'; c.lineWidth = 1.2; for (let k = -6; k <= 6; k += 6) { c.beginPath(); c.moveTo(-10, 3 + k); c.lineTo(10, 3 + k); c.stroke(); c.beginPath(); c.moveTo(k, -9); c.lineTo(k, 15); c.stroke(); }
     rect(-4, -15, 8, 5, '#9a9aa2'); c.strokeStyle = '#c8c8d0'; c.lineWidth = 2; c.beginPath(); c.arc(8, -13, 4, 0, 7); c.stroke(); c.beginPath(); c.moveTo(4, -12); c.lineTo(11, -2); c.stroke();
-  } else { // missile
+  } else if (i === 3) { // missile
     c.rotate(-0.5);
     c.fillStyle = ink; c.beginPath(); c.moveTo(22, 0); c.quadraticCurveTo(14, -6, 8, -5); c.lineTo(-16, -5); c.lineTo(-16, 5); c.lineTo(8, 5); c.quadraticCurveTo(14, 6, 22, 0); c.fill();
     c.fillStyle = '#d8d8e2'; c.fillRect(-15, -4, 23, 8); c.fillStyle = '#d83a3a'; c.beginPath(); c.moveTo(21, 0); c.quadraticCurveTo(14, -5, 8, -4); c.lineTo(8, 4); c.quadraticCurveTo(14, 5, 21, 0); c.fill();
     c.fillStyle = '#ffd23f'; c.fillRect(-2, -4, 3, 8);
     c.fillStyle = '#5a5a66'; c.beginPath(); c.moveTo(-16, -4); c.lineTo(-21, -10); c.lineTo(-11, -4); c.moveTo(-16, 4); c.lineTo(-21, 10); c.lineTo(-11, 4); c.fill();
     c.fillStyle = '#ffb02e'; c.beginPath(); c.moveTo(-16, -3); c.lineTo(-25, 0); c.lineTo(-16, 3); c.fill();
+  } else if (i === 4) { // machine gun
+    rect(-20, -3, 10, 7, '#3a2a1a'); rect(-10, -5, 16, 9, '#4a4a52'); rect(6, -3, 15, 3, '#2a2a30'); rect(6, 1, 13, 2, '#5a5a62');
+    c.fillStyle = '#3a3a42'; c.beginPath(); c.arc(-2, 9, 6, 0, 7); c.fill(); c.fillStyle = ink; c.beginPath(); c.arc(-2, 9, 2, 0, 7); c.fill();
+    c.fillStyle = '#c8a040'; for (let k = 0; k < 5; k++) c.fillRect(-12 + k * 3, 12 + (k % 2), 2, 5);
+    rect(8, -8, 2, 4, '#2a2a30'); rect(18, -4, 2, 6, '#2a2a30'); c.fillStyle = 'rgba(255,255,255,.3)'; c.fillRect(-9, -4, 14, 1.2);
+  } else if (i === 5) { // shotgun
+    c.fillStyle = ink; c.beginPath(); c.moveTo(-20, -1); c.lineTo(-7, -4); c.lineTo(-7, 3); c.lineTo(-20, 6); c.closePath(); c.fill();
+    c.fillStyle = '#9a6a3a'; c.beginPath(); c.moveTo(-19, 0); c.lineTo(-7, -3); c.lineTo(-7, 2); c.lineTo(-19, 5); c.closePath(); c.fill();
+    rect(-7, -4, 9, 6, '#5a5a62'); rect(2, -4, 19, 2, '#3a3a42'); rect(2, -1, 19, 2, '#3a3a42'); rect(5, 1, 10, 3, '#8a5a2a'); rect(-3, 2, 3, 6, '#2a2a30');
+    c.fillStyle = '#d83a3a'; c.fillRect(-15, 9, 4, 6); c.fillRect(-10, 9, 4, 6); c.fillStyle = '#c8a040'; c.fillRect(-15, 13, 4, 2); c.fillRect(-10, 13, 4, 2);
+  } else if (i === 6) { // knife
+    c.rotate(-0.6);
+    c.fillStyle = ink; c.beginPath(); c.moveTo(-4, -3.5); c.lineTo(18, -1); c.lineTo(22, 1); c.lineTo(18, 3); c.lineTo(-4, 3.5); c.fill();
+    const g = c.createLinearGradient(0, -3, 0, 3); g.addColorStop(0, '#ffffff'); g.addColorStop(0.5, '#c8ccd8'); g.addColorStop(1, '#7a7e8a'); c.fillStyle = g;
+    c.beginPath(); c.moveTo(-3, -2.6); c.lineTo(18, -0.4); c.lineTo(21, 1); c.lineTo(18, 2.2); c.lineTo(-3, 2.6); c.fill();
+    rect(-7, -6, 3, 12, '#5a5a62'); rect(-20, -3, 13, 6, '#4a2a14'); c.fillStyle = '#c8a040'; c.fillRect(-17, -1, 2, 2); c.fillRect(-12, -1, 2, 2);
+  } else if (i === 7) { // hellfire: three missiles diving
+    for (let k = 0; k < 3; k++) { c.save(); c.translate(-12 + k * 12, -6 + k * 7); c.rotate(0.9); c.scale(0.55, 0.55);
+      c.fillStyle = ink; c.fillRect(-16, -5, 30, 10); c.fillStyle = '#6a6a5a'; c.fillRect(-15, -4, 26, 8); c.fillStyle = '#ff5a2a'; c.beginPath(); c.moveTo(11, -4); c.lineTo(20, 0); c.lineTo(11, 4); c.fill();
+      c.fillStyle = '#ffb02e'; c.beginPath(); c.moveTo(-16, -3); c.lineTo(-26, 0); c.lineTo(-16, 3); c.fill(); c.restore(); }
+    c.fillStyle = '#ff7a2a'; c.beginPath(); c.arc(14, 14, 5, 0, 7); c.fill(); c.fillStyle = '#ffe080'; c.beginPath(); c.arc(14, 14, 2.4, 0, 7); c.fill();
+  } else { // airstrike: jet dropping bombs
+    c.fillStyle = ink; c.beginPath(); c.moveTo(22, -8); c.lineTo(-16, -11); c.lineTo(-20, -16); c.lineTo(-22, -9); c.lineTo(-16, -6); c.closePath(); c.fill();
+    c.fillStyle = '#7a8a9a'; c.beginPath(); c.moveTo(20, -8.5); c.lineTo(-15, -10.5); c.lineTo(-19, -14.5); c.lineTo(-20.5, -9.5); c.lineTo(-15, -6.8); c.closePath(); c.fill();
+    c.fillStyle = '#5a6a7a'; c.beginPath(); c.moveTo(4, -9); c.lineTo(-8, -1); c.lineTo(-11, -1); c.lineTo(-5, -9); c.fill(); c.fillStyle = '#6ad0ff'; c.fillRect(10, -11, 6, 2);
+    for (let k = 0; k < 3; k++) { c.fillStyle = ink; c.beginPath(); c.ellipse(-4 + k * 9, 3 + k * 5, 2.4, 4, 0, 0, 7); c.fill(); c.fillStyle = '#4a4a4a'; c.beginPath(); c.ellipse(-4 + k * 9, 3 + k * 5, 1.7, 3.2, 0, 0, 7); c.fill(); }
+    c.fillStyle = '#ff7a2a'; c.beginPath(); c.arc(16, 15, 4.5, 0, 7); c.fill();
   }
   c.restore();
 }
@@ -390,7 +463,7 @@ function drawHud(t, u) {
   // weapon menu beside the active goat's name tag (tap a tile to switch)
   menuRects = [];
   if (turnTeam === 0 && phase === 'move' && u && u.alive) {
-    const p = proj(u.x, u.y + 27, u.z), S = 40, G = 6, cols = 2, mw = cols * S + (cols - 1) * G, mh = 2 * S + G;
+    const p = proj(u.x, u.y + 27, u.z), S = 38, G = 5, cols = 3, rows = Math.ceil(WEAPONS.length / cols), mw = cols * S + (cols - 1) * G, mh = rows * S + (rows - 1) * G;
     let mx0 = p.x + 34; if (mx0 + mw > w - 8) mx0 = p.x - 34 - mw; mx0 = K.clamp(mx0, 8, w - mw - 8);
     const my0 = K.clamp(p.y - mh / 2 - 6, 90, h - mh - 30);
     WEAPONS.forEach((W2, i) => {
