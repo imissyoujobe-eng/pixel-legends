@@ -12,9 +12,10 @@
 <script>
 // Vine Kings: a lemur's jungle romp. Roll through enemies, blast out of barrel cannons, ride the mine cart and spell V-I-N-E in every level.
 K.theme({ bg: '#0a1a0c', ink: '#fffaf0', accent: '#ffd23f', accentInk: '#2a1d00' });
-const VW = 256, VH = 192, T = 16;
-// camera zoom: the world is drawn 1.7x bigger so Bongo and the jungle fill the screen
-const Z = 1.7, ZW = VW / Z, ZH = VH / Z;
+// tall portrait view for phones: same zoom on Bongo, but you see much more of the jungle above and around him
+const VW = 240, VH = 330, T = 16;
+// camera zoom: the world is drawn 1.6x bigger so Bongo and the jungle fill the screen (a 150 x 206 slice of the world)
+const Z = 1.6, ZW = VW / Z, ZH = VH / Z;
 K.screen(VW, VH);
 K.hud(['score', 'fruit', 'lives', 'letters']);
 K.pad({ dpad: 'lr', buttons: [{ id: 'b', label: 'ROLL' }, { id: 'a', label: 'JUMP' }] });
@@ -117,7 +118,13 @@ function update(dt) {
     else if (r === 'hurt' && rollT <= 0) die();
   }
   ents = ents.filter(e => e.alive);
-  cam = P.cam(w, p, cam, ZW, ZH);
+  follow();
+}
+// camera: Bongo sits about 40% from the left, a little more room ahead of him
+function follow() {
+  const tx = p.x + p.w / 2 - ZW * 0.4 + p.face * 6;
+  cam.x += (tx - cam.x) * 0.12; cam.x = Math.max(0, Math.min(w.px - ZW, cam.x));
+  const ty = p.y + p.h - ZH * 0.62; cam.y += (ty - cam.y) * 0.1; cam.y = Math.max(0, Math.min(w.py - ZH, cam.y));
 }
 function kill(e) { e.alive = false; score += 200; hud(); fx.push({ x: e.x, y: e.y, vy: -150, l: 0.8, kind: e.kind }); K.beep(250, 0.1, { type: 'square', vol: 0.05 }); }
 function over() { state = 'over'; best = K.saveBest('vinekings', score); K.card({ title: 'GAME OVER', text: 'You reached ' + LVLS[li].n + ' with ' + score + ' points.', best: 'BEST ' + best, button: 'Swing again', onStart: newGame }); }
@@ -265,8 +272,21 @@ const ART = [{ pal: A.PAL.jungle, sky: { top: '#1a5a7a', mid: '#5ab0a0', bottom:
 
 function artBg(c, t, i) { const L = ART[i] || ART[0]; A.sky(c, VW, VH, L.sky, t); c.save(); c.translate(0, Math.round(-(cam.y - (w.py - ZH)) * 0.25)); (L.layers || []).forEach(o => o.t === 'trees' ? A.trees(c, cam.x, o) : A.ridge(c, cam.x, o)); c.restore(); if (L.glow) A.glow(c, VW / 2, VH, 220, L.glow, 0.25); }
 function artTile(c, ch, x, y, tx, ty, i, set, pal) { const sol = (a, b) => a < 0 || a >= w.cols || b >= w.rows || (b >= 0 && set.indexOf(w.g[b][a]) >= 0); A.tile(c, ch + i, x, y, A.edges(sol, tx, ty), tx, ty, pal); }
-drawLemur = A.ink(drawLemur);
-drawEnt = A.ink(drawEnt);
+
+// characters are painted into a small offscreen sprite and outlined in one pass (much faster than outlining every shape)
+function spriteInk(fn, BW, BH, offX, offY, xi) {
+  const oc = document.createElement('canvas'), o = oc.getContext('2d');
+  return function () {
+    const a = Array.prototype.slice.call(arguments), c = a[0], x = a[xi], y = a[xi + 1];
+    const m = c.getTransform(), k = Math.hypot(m.a, m.b) || 1, W = Math.ceil(BW * k), H = Math.ceil(BH * k), ox = x - offX, oy = y - offY;
+    if (oc.width !== W || oc.height !== H) { oc.width = W; oc.height = H; } else { o.setTransform(1, 0, 0, 1, 0, 0); o.clearRect(0, 0, W, H); }
+    o.setTransform(k, 0, 0, k, -ox * k, -oy * k); a[0] = o; fn.apply(null, a);
+    c.save(); try { c.filter = 'drop-shadow(0.7px 0 0 rgba(20,10,5,.95)) drop-shadow(-0.7px 0 0 rgba(20,10,5,.95)) drop-shadow(0 0.7px 0 rgba(20,10,5,.95)) drop-shadow(0 -0.7px 0 rgba(20,10,5,.95))'; } catch (e) { }
+    c.drawImage(oc, ox, oy, BW, BH); c.restore();
+  };
+}
+drawLemur = spriteInk(drawLemur, 72, 72, 32, 46, 1);
+drawEnt = spriteInk(drawEnt, 48, 48, 18, 18, 2);
 { const _draw = draw; draw = function (c, t) { _draw(c, t); if (w) { const L = ART[li] || ART[0]; A.ambient(c, VW, VH, t, L.amb, 16); A.vignette(c, VW, VH, L.vig == null ? 0.3 : L.vig); } }; }
 K.run(update, draw);
 </script>

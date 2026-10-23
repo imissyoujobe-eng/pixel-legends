@@ -12,7 +12,10 @@
 <script>
 // Pipe Hopper: a classic run-and-jump adventure. Bonk blocks, stomp Grumps, grab berries to grow and sparks to throw fire. Reach the flag in each of four worlds.
 K.theme({ bg: '#0c0c14', ink: '#fffaf0', accent: '#ff5a36', accentInk: '#fff' });
-const VW = 256, VH = 192, T = 16;
+// tall portrait view for phones: a narrow, tall window makes everything big on screen
+const VW = 150, VH = 206, T = 16;
+// hero hit boxes: small and powered-up; he now stands about as tall as the trees behind him
+const HW = 13, HS = 22, HB = 30, HERO = { jump: 375, gravity: 850 };
 K.screen(VW, VH);
 K.hud(['score', 'coins', 'world', 'time']);
 K.pad({ dpad: 'lr', buttons: [{ id: 'b', label: 'RUN' }, { id: 'a', label: 'JUMP' }] });
@@ -30,7 +33,7 @@ const CH = {
   ceiling: [E, E, E, E, E, '..BBBBBBBBBBBB..', E, E, E, '..o..o..o..o....', E, '....g......g....', E, G, G],
   bees: [E, E, E, '...f......f.....', E, E, E, '......M.........', E, E, E, '..g..........g..', E, G, G],
   castle1: [G, G, E, E, E, E, E, E, E, E, E, '....H......H....', '....H..g...H....', '#####LLLL#######', G],
-  castle2: [G, G, E, E, E, E, E, '.......HHH......', E, E, '...HHH.....HHH..', E, E, '###LLLLLLLLLLL##', G],
+  castle2: [G, G, E, E, E, E, '.......HHH......', E, E, E, '...HHH.....HHH..', E, E, '###LLLLLLLLLLL##', G],
   end: ['........................', '........................', '........................', '.................F......', '.................F......', '.................F......', '.................F......', '.................F......', '.................F......', '.................F......', '.........HHHH....F......', '........HHHHH....F......', '.......HHHHHH....H......', '########################', '########################']
 };
 const WORLDS = [
@@ -56,14 +59,15 @@ function load() {
   }
   P.SOLID = '#BHP?MU'; P.HURT = 'L';
   if (mid) { for (let x = Math.floor(w.cols / 2); x < w.cols; x++) if (w.g[13][x] === '#' && w.g[12][x] === '.' && w.g[11][x] === '.' && w.g[12][x + 1] === '.') { w.start = { x: x * T, y: 11 * T }; break; } }
-  p = P.player(w.start.x, w.start.y, { h: power ? 26 : 14 });
+  p = P.player(w.start.x + 1, 0, Object.assign({ w: HW, h: power ? HB : HS }, HERO));
+  p.y = (mid ? 13 * T : w.start.y + T) - p.h - 0.5;
   hud();
 }
 function hud() { K.set('score', score); K.set('coins', '● ' + coins); K.set('world', 'W' + WORLDS[wi].n + ' ♥' + lives); K.set('time', Math.max(0, Math.ceil(timeLeft))); }
 function addCoin(x, y) { coins++; score += 100; if (coins >= 100) { coins -= 100; lives++; K.tune([660, 880, 1320], 0.08); } K.beep(988, 0.05, { vol: 0.05 }); K.beep(1319, 0.12, { vol: 0.05, at: 0.05 }); if (x != null) fx.push({ t: 'coin', x, y, vy: -160, l: 0.5 }); hud(); }
 function setPower(n) {
-  if (n > 0 && power === 0) { p.y -= 12; p.h = 26; }
-  if (n === 0 && power > 0) { p.h = 14; p.y += 12; }
+  if (n > 0 && power === 0) { p.y -= HB - HS; p.h = HB; }
+  if (n === 0 && power > 0) { p.h = HS; p.y += HB - HS; }
   power = n;
 }
 
@@ -106,7 +110,7 @@ function update(dt) {
   }
   if (p.fell) { p.fell = false; return die(); }
   // fireballs
-  if (power === 2 && K.hit('b')) { fx.push({ t: 'fire', x: p.x + (p.face > 0 ? p.w : -6), y: p.y + 8, vx: p.face * 200, vy: 0, l: 2, fire: true }); K.beep(700, 0.06, { to: 300, vol: 0.05 }); }
+  if (power === 2 && K.hit('b')) { fx.push({ t: 'fire', x: p.x + (p.face > 0 ? p.w : -6), y: p.y + p.h * 0.45, vx: p.face * 200, vy: 0, l: 2, fire: true }); K.beep(700, 0.06, { to: 300, vol: 0.05 }); }
   for (const f of fx) if (f.fire) {
     f.vy = Math.min(250, f.vy + 900 * dt);
     if (P.isSolid(P.tile(w, f.x, f.y + 4))) { f.vy = -150; f.y -= 2; }
@@ -154,7 +158,13 @@ function update(dt) {
     }
   }
   ents = ents.filter(e => e.alive);
-  cam = P.cam(w, p, cam, VW, VH);
+  follow();
+}
+// camera: hero sits about 40% from the left, a little more room ahead of him
+function follow() {
+  const tx = p.x + p.w / 2 - VW * 0.4 + p.face * 6;
+  cam.x += (tx - cam.x) * 0.12; cam.x = Math.max(0, Math.min(w.px - VW, cam.x));
+  const ty = p.y + p.h - VH * 0.62; cam.y += (ty - cam.y) * 0.1; cam.y = Math.max(0, Math.min(w.py - VH, cam.y));
 }
 function kill(e, pts, squash) {
   e.alive = false; score += pts; hud();
@@ -194,25 +204,59 @@ function drawTile(c, ch, x, y, tx, ty, t) {
   else if (ch === 'L') { c.fillStyle = Math.floor(t / 150 + tx) % 2 ? '#ff5a1a' : '#ff8a1a'; c.fillRect(x, y + 3, T, T - 3); c.fillStyle = '#ffd23f'; c.fillRect(x + (t / 40 + tx * 5) % 14, y + 5, 2, 2); }
   else if (ch === '=') { c.fillStyle = '#e8d6b0'; c.fillRect(x, y, T, 5); c.fillStyle = '#a88a5a'; c.fillRect(x, y + 5, T, 2); c.fillRect(x + 7, y, 2, 5); }
 }
+// Bo the bear cub: overalls, cap and boots, drawn with smooth shaded shapes at hit-box size (30 units tall when powered up)
 function drawHero(c, x, y, t) {
   if (p.inv > 0 && Math.floor(t / 60) % 2) return;
-  const big = power > 0, f = p.face, run = p.ground && Math.abs(p.vx) > 5 ? Math.floor(p.anim / 10) % 2 : 0, air = !p.ground;
-  const h = big ? 26 : 14, top = y;
-  c.save(); c.translate(x + 6, 0); c.scale(f, 1); c.translate(-6, 0);
-  const cap = power === 2 ? '#fff' : '#ff5a36', suit = power === 2 ? '#ff5a36' : '#2a6fdb';
-  // legs + feet
-  c.fillStyle = suit; c.fillRect(1, top + h - 7, 4, 5 - (air ? 1 : run)); c.fillRect(7, top + h - 7, 4, 5 - (air ? 0 : 1 - run));
-  c.fillStyle = '#5a3a22'; c.fillRect(run || air ? 0 : 1, top + h - 2, 5, 2); c.fillRect(run ? 8 : 7, top + h - 2, 5, 2);
-  // body
-  c.fillStyle = suit; c.fillRect(1, top + (big ? 10 : 6), 10, big ? 10 : 4);
-  c.fillStyle = '#ffd23f'; c.fillRect(3, top + (big ? 12 : 7), 2, 2); c.fillRect(7, top + (big ? 12 : 7), 2, 2);
-  c.fillStyle = '#9a6a3a'; c.fillRect(air ? 10 : 11, top + (big ? 11 : 6) - (air ? 3 : 0), 2, big ? 6 : 3);
-  // head: bear cub with cap
-  c.fillStyle = '#9a6a3a'; c.fillRect(2, top - (big ? 0 : 2), 9, big ? 10 : 8);
-  c.fillStyle = '#d9a35b'; c.fillRect(7, top + (big ? 4 : 2), 5, big ? 4 : 3);
-  c.fillStyle = '#111'; c.fillRect(11, top + (big ? 4 : 2), 1, 1); c.fillRect(7, top + (big ? 2 : 0), 1, 2);
-  c.fillStyle = cap; c.fillRect(1, top - (big ? 3 : 4), 10, 3); c.fillRect(8, top - (big ? 1 : 2), 5, 1);
-  c.fillStyle = '#9a6a3a'; c.fillRect(1, top - (big ? 4 : 5), 2, 2);
+  const S = p.h / 30, f = p.face, moving = p.ground && Math.abs(p.vx) > 5, air = !p.ground;
+  const ph = p.anim / 7, st = moving ? Math.sin(ph) : 0, fire = power === 2;
+  const cap = fire ? '#ffd23f' : '#1fa89a', capD = fire ? '#c89a10' : '#11706a', suit = fire ? '#8a4ad8' : '#5a8a2a', suitD = fire ? '#5e2aa8' : '#3a5e18';
+  const fur = '#9a6a3a', furD = '#6a4220', furL = '#c48e56', tan = '#efc994';
+  c.save(); c.translate(x + p.w / 2, y + p.h);
+  if (p.ground) { c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath(); c.ellipse(0, 0, 7 * S, 1.6 * S, 0, 0, 7); c.fill(); }
+  c.scale(f * S, S);
+  c.translate(0, moving ? -Math.abs(Math.sin(ph)) * 1.1 : air ? 0 : Math.sin(t / 420) * 0.3);
+  const limb = (px, py, len, ang, wd, col) => { c.save(); c.translate(px, py); c.rotate(ang); c.fillStyle = col; c.beginPath(); c.roundRect(-wd / 2, 0, wd, len, wd / 2); c.fill(); c.restore(); };
+  const leg = (px, ang, col) => { c.save(); c.translate(px, -9.5); c.rotate(ang); c.fillStyle = col; c.beginPath(); c.roundRect(-2.2, 0, 4.4, 7.5, 1.6); c.fill(); c.fillStyle = '#4a2c16'; c.beginPath(); c.ellipse(1.2, 8, 3.3, 1.9, 0, 0, 7); c.fill(); c.fillStyle = 'rgba(255,255,255,.25)'; c.fillRect(0, 6.8, 2.6, 0.7); c.restore(); };
+  const paw = (px, py, ang, len) => { c.save(); c.translate(px, py); c.rotate(ang); c.fillStyle = tan; c.beginPath(); c.arc(0, len, 1.9, 0, 7); c.fill(); c.restore(); };
+  const backArm = air ? -2.5 : 0.35 + st * 0.75, frontArm = air ? -2.7 : -0.35 - st * 0.75;
+  // back arm and back leg (in shade)
+  limb(-2.5, -18, 7.5, backArm, 3.3, furD); paw(-2.5, -18, backArm, 7.5);
+  leg(-2.4, air ? 0.55 : -st * 0.85, suitD);
+  // little round tail
+  c.fillStyle = furL; c.beginPath(); c.arc(-6.4, -11, 2, 0, 7); c.fill();
+  // torso: furry chest, then overalls with a bib, straps and gold buttons
+  let g = c.createLinearGradient(0, -20, 0, -8); g.addColorStop(0, furL); g.addColorStop(1, fur);
+  c.fillStyle = g; c.beginPath(); c.roundRect(-6, -20, 12, 9, 3.5); c.fill();
+  g = c.createLinearGradient(-6, 0, 6, 0); g.addColorStop(0, suitD); g.addColorStop(0.55, suit); g.addColorStop(1, suitD);
+  c.fillStyle = g; c.beginPath(); c.roundRect(-6.2, -14.5, 12.4, 6.6, 2.6); c.fill();
+  c.beginPath(); c.roundRect(-3.8, -18.4, 7.6, 5, 1.2); c.fill();
+  c.strokeStyle = suit; c.lineWidth = 1.5; c.beginPath(); c.moveTo(-3.2, -18); c.lineTo(-4.6, -20); c.moveTo(3.2, -18); c.lineTo(4.4, -20); c.stroke();
+  c.fillStyle = '#ffd23f'; c.beginPath(); c.arc(-2.3, -16.6, 0.95, 0, 7); c.arc(2.3, -16.6, 0.95, 0, 7); c.fill();
+  c.fillStyle = 'rgba(255,255,255,.22)'; c.fillRect(-3.2, -18, 6.4, 0.8);
+  c.fillStyle = suitD; c.fillRect(-0.4, -13, 0.8, 4.6);
+  leg(2.2, air ? -0.45 : st * 0.85, suit);
+  // head: round bear face with ears, snout and a big eye
+  c.save(); c.translate(1, -24.5);
+  c.fillStyle = fur; c.beginPath(); c.arc(-4.8, -4.6, 2.4, 0, 7); c.arc(3.4, -5.6, 2.4, 0, 7); c.fill();
+  c.fillStyle = '#e8a0a8'; c.beginPath(); c.arc(-4.8, -4.6, 1.1, 0, 7); c.fill();
+  g = c.createRadialGradient(-1.5, -2, 1, 0, 0, 7.2); g.addColorStop(0, furL); g.addColorStop(1, fur);
+  c.fillStyle = g; c.beginPath(); c.arc(0, 0, 6.6, 0, 7); c.fill();
+  c.fillStyle = tan; c.beginPath(); c.ellipse(4.6, 1.6, 3.8, 2.8, 0.1, 0, 7); c.fill();
+  c.fillStyle = '#1a1010'; c.beginPath(); c.ellipse(7.6, 0.4, 1.5, 1.15, 0, 0, 7); c.fill(); c.fillStyle = '#fff'; c.fillRect(7.1, -0.2, 0.6, 0.45);
+  c.strokeStyle = '#4a2a14'; c.lineWidth = 0.6; c.beginPath(); c.moveTo(7.2, 1.6); c.lineTo(7, 2.6); c.arc(5.6, 2.6, 1.4, 0, 1.6); c.stroke();
+  const blink = (Math.floor(t / 2800) % 6 === 0 && (t % 2800) < 130);
+  if (blink) { c.fillStyle = '#1a1010'; c.fillRect(1.4, -1.4, 2.8, 0.6); }
+  else { c.fillStyle = '#fff'; c.beginPath(); c.ellipse(2.8, -1.4, 1.55, 2, 0, 0, 7); c.fill(); c.fillStyle = '#1a1010'; c.beginPath(); c.ellipse(3.4, -1.2, 0.9, 1.25, 0, 0, 7); c.fill(); c.fillStyle = '#fff'; c.fillRect(3.4, -2, 0.5, 0.5); }
+  c.fillStyle = 'rgba(255,110,110,.35)'; c.beginPath(); c.ellipse(1.2, 2.4, 1.5, 0.9, 0, 0, 7); c.fill();
+  // knit beanie: striped dome, folded cuff and a bobbing pom-pom (ears poke out)
+  g = c.createLinearGradient(0, -9, 0, -2); g.addColorStop(0, cap); g.addColorStop(1, capD);
+  c.fillStyle = g; c.beginPath(); c.ellipse(-0.6, -3, 6.4, 5.6, 0, Math.PI, 0); c.fill();
+  c.fillStyle = 'rgba(255,255,255,.55)'; c.fillRect(-6.6, -5.6, 12, 1); c.fillStyle = 'rgba(0,0,0,.15)'; for (let k = -5; k <= 5; k += 1.6) c.fillRect(-0.6 + k, -7.6 + Math.abs(k) * 0.35, 0.5, 3.6);
+  c.fillStyle = fire ? '#e8862a' : '#ff8a3a'; c.beginPath(); c.roundRect(-7.2, -4, 13.2, 2.4, 1.1); c.fill();
+  c.fillStyle = '#fff'; c.beginPath(); c.arc(-0.8 + Math.sin(t / 200) * 0.4, -9.4, 2, 0, 7); c.fill(); c.fillStyle = 'rgba(0,0,0,.12)'; c.beginPath(); c.arc(-0.2, -8.9, 1, 0, 7); c.fill();
+  c.restore();
+  // front arm
+  limb(2.4, -18, 7.5, frontArm, 3.3, fur); paw(2.4, -18, frontArm, 7.5);
   c.restore();
 }
 function drawEnt(c, e, x, y, t) {
@@ -226,7 +270,7 @@ function drawEnt(c, e, x, y, t) {
   else if (e.kind === 'snapper') { const yy = y; c.fillStyle = '#3fa34d'; c.fillRect(x - 1, yy + 10, 2, e.base - yy - 10); c.fillStyle = '#e63946'; c.beginPath(); c.arc(x, yy + 6, 7, 0, 7); c.fill(); c.fillStyle = '#fff'; for (let k = -5; k < 6; k += 3) c.fillRect(x + k, yy + 5 + (Math.floor(t / 150) % 2), 1, 2); c.fillStyle = '#fff'; c.fillRect(x - 4, yy + 1, 2, 2); c.fillRect(x + 2, yy + 1, 2, 2); }
 }
 function draw(c, t) {
-  if (!w) { c.fillStyle = '#6ec3ff'; c.fillRect(0, 0, VW, VH); c.fillStyle = '#c8602c'; c.fillRect(0, 208, VW, 32); return; }
+  if (!w) { c.fillStyle = '#6ec3ff'; c.fillRect(0, 0, VW, VH); c.fillStyle = '#c8602c'; c.fillRect(0, VH - 32, VW, 32); return; }
   const Wd = WORLDS[wi]; artBg(c, t, wi);
   P.eachVisible(w, cam, VW, VH, (ch, x, y, tx, ty) => drawTile(c, ch, x, y, tx, ty, t));
   for (const it of items) { const x = Math.round(it.x - cam.x), y = Math.round(it.y - cam.y); if (it.kind === 'berry') { c.fillStyle = '#c0306a'; c.beginPath(); c.arc(x + 6, y + 7, 6, 0, 7); c.fill(); c.fillStyle = '#ff8fc7'; c.fillRect(x + 3, y + 4, 2, 2); c.fillStyle = '#3fa34d'; c.fillRect(x + 5, y - 1, 3, 3); } else { c.fillStyle = '#3fa34d'; c.fillRect(x + 5, y + 6, 2, 6); const k = Math.floor(t / 100) % 2; c.fillStyle = k ? '#ff5a36' : '#ffd23f'; c.beginPath(); c.arc(x + 6, y + 4, 5, 0, 7); c.fill(); c.fillStyle = '#fff'; c.fillRect(x + 5, y + 3, 2, 2); } }
@@ -243,14 +287,25 @@ function draw(c, t) {
     else if (f.t === 'flip') { c.save(); c.translate(x + 6, y + 6); c.scale(1, -1); drawEnt(c, { kind: f.kind, vx: 1 }, -6, -6, t); c.restore(); }
   }
   drawHero(c, Math.round(p.x - cam.x), Math.round(p.y - cam.y), t);
-  if (msgT > 0) K.text(c, msg, VW / 2, 70, 18, '#fff');
+  if (msgT > 0) K.text(c, msg, VW / 2, 56, 14, '#fff');
 }
 title();
 const ART = [{ pal: A.PAL.earth, sky: { top: '#2a7ae0', mid: '#8ad0ff', bottom: '#e8f8ff', sun: '#fff6c0', sunY: 50 }, layers: [{ factor: 0.12, base: 150, amp: 45, col: '#7ab8a8', edge: 'rgba(0,0,0,.18)', seed: 2, fog: 'rgba(220,240,255,.35)' }, { factor: 0.28, base: 185, amp: 40, col: '#4a9a5a', edge: 'rgba(0,0,0,.3)', seed: 5 }, { t: 'trees', factor: 0.45, base: 212, col: '#2a7a3a', hi: '#4aa04a', kind: 'round', spacing: 28, ground: true }], amb: "dust", vig: .2 }, { pal: Object.assign({}, A.PAL.stone, { base: '#4a5078', hi: '#6a72a0', lo: '#2e3250', mortar: '#14162a' }), sky: { top: '#06060f', mid: '#10102a', bottom: '#1a1a3a', clouds: false }, layers: [{ factor: 0.15, base: 150, amp: 70, col: '#18183a', edge: 'rgba(120,140,255,.25)', seed: 7 }, { factor: 0.3, base: 200, amp: 50, col: '#10102a', edge: 'rgba(120,140,255,.3)', seed: 3 }], amb: "dust", vig: .45 }, { pal: Object.assign({}, A.PAL.earth, { base: '#c88a4a', hi: '#e8aa6a', lo: '#9a5a2a', mortar: '#5a3014', grass: '#e8c06a', grassHi: '#fff0a0', grassLo: '#b08a3a' }), sky: { top: '#3a2a6a', mid: '#ff8a5a', bottom: '#ffd88a', sun: '#ffe8a0', sunY: 80, sunR: 18 }, layers: [{ factor: 0.12, base: 160, amp: 60, col: '#a05a5a', bands: ['rgba(255,200,150,.25)', 'rgba(120,40,40,.25)'], mesa: true, edge: 'rgba(0,0,0,.25)', seed: 1, fog: 'rgba(255,220,180,.2)' }, { factor: 0.3, base: 195, amp: 50, col: '#7a3a3a', bands: ['rgba(255,160,100,.3)', 'rgba(60,20,20,.3)'], mesa: true, edge: 'rgba(0,0,0,.45)', seed: 4 }, { t: 'trees', factor: 0.5, base: 215, col: '#4a2a2a', kind: 'palm', spacing: 46 }], amb: "leaf", vig: .25 }, { pal: A.PAL.castle, sky: { top: '#060208', mid: '#2a0a0a', bottom: '#7a1a0a', clouds: false }, layers: [{ factor: 0.15, base: 170, amp: 50, col: '#2a0a0a', mesa: true, edge: 'rgba(255,90,30,.35)', seed: 9 }, { factor: 0.3, base: 205, amp: 40, col: '#180606', mesa: true, edge: 'rgba(255,90,30,.4)', seed: 2 }], amb: "ember", vig: .45, glow: "255,80,20" }];
 
 function artBg(c, t, i) { const L = ART[i] || ART[0]; A.sky(c, VW, VH, L.sky, t); c.save(); c.translate(0, Math.round(-cam.y * 0.9)); (L.layers || []).forEach(o => o.t === 'trees' ? A.trees(c, cam.x, o) : A.ridge(c, cam.x, o)); c.restore(); if (L.glow) A.glow(c, VW / 2, VH, 220, L.glow, 0.25); }
 function artTile(c, ch, x, y, tx, ty, i, set, pal) { const sol = (a, b) => a < 0 || a >= w.cols || b >= w.rows || (b >= 0 && set.indexOf(w.g[b][a]) >= 0); A.tile(c, ch + i, x, y, A.edges(sol, tx, ty), tx, ty, pal); }
-drawHero = A.ink(drawHero);
+// the hero is drawn into a small offscreen sprite first and outlined in one pass (much faster than outlining every shape)
+drawHero = (function (fn) {
+  const oc = document.createElement('canvas'), o = oc.getContext('2d'), BW = 64, BH = 64;
+  return function (c, x, y, t) {
+    const m = c.getTransform(), k = Math.hypot(m.a, m.b) || 1, W = Math.ceil(BW * k), H = Math.ceil(BH * k), ox = x - 26, oy = y - 30;
+    if (oc.width !== W || oc.height !== H) { oc.width = W; oc.height = H; } else { o.setTransform(1, 0, 0, 1, 0, 0); o.clearRect(0, 0, W, H); }
+    o.setTransform(k, 0, 0, k, -ox * k, -oy * k);
+    fn(o, x, y, t);
+    c.save(); try { c.filter = 'drop-shadow(0.7px 0 0 rgba(20,10,5,.95)) drop-shadow(-0.7px 0 0 rgba(20,10,5,.95)) drop-shadow(0 0.7px 0 rgba(20,10,5,.95)) drop-shadow(0 -0.7px 0 rgba(20,10,5,.95))'; } catch (e) { }
+    c.drawImage(oc, ox, oy, BW, BH); c.restore();
+  };
+})(drawHero);
 drawEnt = A.ink(drawEnt);
 { const _draw = draw; draw = function (c, t) { _draw(c, t); if (w) { const L = ART[wi] || ART[0]; A.ambient(c, VW, VH, t, L.amb, 16); A.vignette(c, VW, VH, L.vig == null ? 0.3 : L.vig); } }; }
 K.run(update, draw);
