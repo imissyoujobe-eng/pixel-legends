@@ -10,11 +10,12 @@
 <script>
 // Deep Core: explore an alien base room by room. Find the roll orb, missiles and jump boots to reach new areas, then destroy the creature at the core.
 K.theme({ bg: '#05070f', ink: '#e8f4ff', accent: '#ff8a1f', accentInk: '#2a1000' });
-const VW = 240, VH = 330, T = 16, RW = 20, RH = 15;
+let VW = 240; const VH = 330, T = 16, RW = 20, RH = 15;
 // tall portrait camera: the 320x240 rooms are drawn 2.2x bigger and the view scrolls with the hero inside each room
-const Z = 2.2, ZW = VW / Z, ZH = VH / Z;
+const Z = 2.2, ZH = VH / Z; let ZW = VW / Z;
 let cam = { x: 0, y: 0 }, camRoom = '';
 K.screen(VW, VH);
+K.flex(240, VH, w => { VW = w; ZW = VW / Z; }, { maxW: Math.floor(RW * T * Z) }); // phone on its side: wider view, never wider than one room
 K.hud(['energy', 'missiles', 'items']);
 K.pad({ dpad: '4', buttons: [{ id: 'x', label: 'MSL' }, { id: 'b', label: 'FIRE' }, { id: 'a', label: 'JUMP' }] });
 </script>

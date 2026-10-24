@@ -12,8 +12,9 @@
 // Claw Fury: a side-scrolling claw brawler. Rook, an ex-ranger in a green field jacket and red bandana, carves through
 // three robot armies with the steel claws in her bracers. Combos, uppercuts, lunges, RAGE mode and three big bosses.
 K.theme({ bg: '#0c0e14', ink: '#f3f1ea', accent: '#e8452c', accentInk: '#fff' });
-const VW = 170, VH = 232, GY = 200, FLOOR = 188, GRAV = 900;
+let VW = 170; const VH = 232, GY = 200, FLOOR = 188, GRAV = 900;
 K.screen(VW, VH, { smooth: true });
+K.flex(170, VH, w => { VW = w; }, { smooth: true }); // phone on its side: wider view that fills the screen
 K.hud(['score', 'stage', 'lives']);
 K.pad({ dpad: '4', buttons: [{ id: 'y', label: 'RAGE' }, { id: 'x', label: 'LUNGE' }, { id: 'b', label: 'JUMP' }, { id: 'a', label: 'ATTACK' }] });
 (function () {

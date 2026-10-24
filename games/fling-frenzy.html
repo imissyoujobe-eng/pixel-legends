@@ -133,8 +133,10 @@ function update(dt) {
   bodies = bodies.filter(b => { const u = b.getUserData(), p = b.getPosition(); if (u.hp <= 0 || p.y < -3 || p.x > 40 || p.x < -5) { const pts = u.kind === 'gloom' ? 5000 : MAT[u.mat].pts; levelScore += pts; pops.push({ x: p.x, y: p.y + 0.6, txt: pts, t: 1 }); addFx(p.x, p.y, u.kind === 'gloom' ? '#a06aff' : MAT[u.mat].col, u.kind === 'gloom' ? 16 : 8); if (u.kind === 'gloom') K.tune([523, 392], 0.08, { type: 'square' }); else if (u.mat === 'glass') K.beep(1800, 0.08, { to: 2600 }); else K.noise(0.12, 0.2); world.destroyBody(b); return false; } return true; });
   // aiming
   if (cur && cur.state === 'ready') {
-    if (K.down('up')) aim.ang = Math.min(1.45, aim.ang + dt * 0.9); if (K.down('down')) aim.ang = Math.max(-0.4, aim.ang - dt * 0.9);
-    if (K.down('right')) aim.pow = Math.min(1, aim.pow + dt * 0.6); if (K.down('left')) aim.pow = Math.max(0.1, aim.pow - dt * 0.6);
+    // the joystick moves the Puff in the sling the same way you push it, like pulling back the band with your thumb:
+    // pull it left (back) for more power, pull it down to aim higher
+    if (K.down('down')) aim.ang = Math.min(1.45, aim.ang + dt * 0.9); if (K.down('up')) aim.ang = Math.max(-0.4, aim.ang - dt * 0.9);
+    if (K.down('left')) aim.pow = Math.min(1, aim.pow + dt * 0.6); if (K.down('right')) aim.pow = Math.max(0.1, aim.pow - dt * 0.6);
     if (K.ptr.down) { if (!aim.drag) aim.drag = { x: K.ptr.x, y: K.ptr.y }; const dx = aim.drag.x - K.ptr.x, dy = K.ptr.y - aim.drag.y, d = Math.hypot(dx, dy); if (d > 6) { aim.ang = Math.atan2(dy, dx); aim.pow = Math.min(1, d / 90); intro = 0; } }
     else if (aim.drag) { const moved = aim.pow; aim.drag = null; if (moved > 0.08) fling(); }
     if (K.hit('a')) fling();

@@ -10,8 +10,18 @@
 <script>
 // Agent Zero: a first-person spy mission. Sneak through three secret bases, grab the data disks and reach the exit pad.
 K.theme({ bg: '#0a0c10', ink: '#e8f0ff', accent: '#ffd23f', accentInk: '#2a1d00' });
-const W = 240, H = 330, VIEWH = 226; // tall portrait view: 3D view on top, instrument panel + big map below
-K.screen(W, H);
+let W = 240, H = 330, VIEWH = 226, LAND = false; // tall portrait view: 3D view on top, instrument panel + big map below
+// phone on its side: the 3D view fills the whole screen and the panel shrinks to a small overlay in the corners
+K.screen(W, H); K.fullLand();
+function layout() {
+  const land = innerWidth > innerHeight * 1.15, st = K.stageSize();
+  const nH = land ? 240 : 330, nW = land ? Math.round(K.clamp(nH * st.w / Math.max(1, st.h), 240, 640)) : 240;
+  LAND = land;
+  if (nW !== W || nH !== H) { W = nW; H = nH; VIEWH = land ? H : 226; K.screen(W, H); }
+  PROJ = (W / 2) / Math.tan(FOV / 2); zbuf = new Array(W);
+  MAPBOX = land ? { x: W - 86, y: 6, w: 80, h: 70 } : { x: W - 104, y: VIEWH + 6, w: 100, h: H - VIEWH - 10 };
+}
+addEventListener('resize', () => { layout(); setTimeout(layout, 150); });
 K.hud(['mission', 'disks', 'ammo']);
 K.pad({ dpad: '4', buttons: [{ id: 'sl', label: '◀', top: true }, { id: 'sr', label: '▶', top: true }, { id: 'b', label: 'USE' }, { id: 'a', label: 'FIRE' }] });
 // keyboard: Q / E strafe
@@ -36,11 +46,11 @@ function hud() { K.set('mission', 'MISSION ' + (mi + 1) + ' ♥' + Math.max(0, M
 function cell(x, y) { const r = g[Math.floor(y)]; return r ? r[Math.floor(x)] || '#' : '#'; }
 function solidAt(x, y) { const ch = cell(x, y); if (ch === '#' || ch === 'E' && false) return true; if (ch === 'D' || ch === 'K') { const d = doors[Math.floor(x) + ',' + Math.floor(y)]; return !d || d.open < 0.9; } return false; }
 
-const MAPBOX = { x: W - 104, y: VIEWH + 6, w: 100, h: H - VIEWH - 10 };
+let MAPBOX = { x: W - 104, y: VIEWH + 6, w: 100, h: H - VIEWH - 10 };
 function update(dt) {
   if (state !== 'play') return;
   // tap the minimap to open the full-screen map (the mission pauses while it is open); tap again to close
-  if (K.ptr.tapped) { const p = K.ptr; if (bigMap) { bigMap = false; K.beep(500, 0.05, { vol: 0.03 }); } else if (p.x >= MAPBOX.x - 4 && p.y >= MAPBOX.y - 4 && p.y <= H) { bigMap = true; K.beep(700, 0.05, { vol: 0.03 }); } }
+  if (K.ptr.tapped) { const p = K.ptr; if (bigMap) { bigMap = false; K.beep(500, 0.05, { vol: 0.03 }); } else if (p.x >= MAPBOX.x - 4 && p.y >= MAPBOX.y - 4 && p.y <= MAPBOX.y + MAPBOX.h + 4) { bigMap = true; K.beep(700, 0.05, { vol: 0.03 }); } }
   if (bigMap) return;
   time += dt; if (msgT > 0) msgT -= dt; if (flash > 0) flash -= dt; if (hurtT > 0) hurtT -= dt; if (gunT > 0) gunT -= dt;
   const turn = (K.down('right') ? 1 : 0) - (K.down('left') ? 1 : 0), mv = (K.down('up') ? 1 : 0) - (K.down('down') ? 1 : 0);
@@ -101,7 +111,7 @@ function los(x0, y0, x1, y1) { const d = Math.hypot(x1 - x0, y1 - y0), n = Math.
 function lose() { state = 'over'; K.tune([392, 330, 262, 196], 0.18, { type: 'sawtooth' }); K.card({ title: 'AGENT DOWN', text: 'You were caught on mission ' + (mi + 1) + '. Try a quieter approach.', best: best ? 'BEST TIME ' + Math.floor(best / 60) + ':' + String(best % 60).padStart(2, '0') : '', button: 'Retry mission', onStart: () => { hp = 100; ammo = Math.max(ammo, 30); load(); state = 'play'; } }); }
 function win() { state = 'over'; const t = Math.floor(time); best = K.saveBest('agentzero', t, true); K.card({ title: 'MISSION COMPLETE', text: 'All three bases cleared in ' + Math.floor(t / 60) + 'm ' + t % 60 + 's with ' + kills + ' guards down.', best: 'BEST TIME ' + Math.floor(best / 60) + ':' + String(best % 60).padStart(2, '0'), button: 'Play again', onStart: () => { mi = 0; time = 0; kills = 0; hp = 100; ammo = 40; load(); state = 'play'; } }); }
 
-const FOV = 1.15, PROJ = (W / 2) / Math.tan(FOV / 2), WALLC = { '#': [90, 100, 120], D: [150, 110, 60], K: [190, 50, 60], E: [40, 200, 90] };
+const FOV = 1.15; let PROJ = (W / 2) / Math.tan(FOV / 2); const WALLC = { '#': [90, 100, 120], D: [150, 110, 60], K: [190, 50, 60], E: [40, 200, 90] };
 
 const TEXC = {};
 function wallTex(ch) {
@@ -301,7 +311,13 @@ function draw(c, t) {
   // crosshair
   c.fillStyle = 'rgba(255,255,255,.75)'; c.fillRect(W / 2 - 1, VIEWH / 2 - 7, 2, 4); c.fillRect(W / 2 - 1, VIEWH / 2 + 3, 2, 4); c.fillRect(W / 2 - 7, VIEWH / 2 - 1, 4, 2); c.fillRect(W / 2 + 3, VIEWH / 2 - 1, 4, 2);
   if (hurtT > 0) { c.fillStyle = 'rgba(255,0,0,' + hurtT + ')'; c.fillRect(0, 0, W, VIEWH); }
-  // ---- bottom panel: status on the left, big minimap on the right ----
+  // ---- bottom panel: status on the left, big minimap on the right (sideways: small overlay instead) ----
+  if (LAND) {
+    c.fillStyle = 'rgba(8,10,16,.55)'; c.fillRect(4, 4, 112, 40);
+    c.fillStyle = '#2a2e3a'; c.fillRect(8, 8, 104, 7); c.fillStyle = hp > 30 ? '#3df07a' : (Math.floor(t / 200) % 2 ? '#ff3b5c' : '#a01830'); c.fillRect(9, 9, 102 * K.clamp(hp / 100, 0, 1), 5);
+    K.text(c, 'AMMO ' + ammo, 8, 23, 7, '#ffd23f', 'left'); K.text(c, 'DISKS ' + disks + '/3', 62, 23, 7, '#46d0ff', 'left');
+    K.text(c, keycard ? 'KEYCARD ✓' : 'NO KEYCARD', 8, 36, 6, keycard ? '#ffd23f' : '#7a86a0', 'left');
+  } else {
   const pg = c.createLinearGradient(0, VIEWH, 0, H); pg.addColorStop(0, '#1c2030'); pg.addColorStop(1, '#0c0e16'); c.fillStyle = pg; c.fillRect(0, VIEWH, W, H - VIEWH);
   c.fillStyle = '#3a4258'; c.fillRect(0, VIEWH, W, 2);
   const lx = 8; let ly = VIEWH + 14;
@@ -313,12 +329,13 @@ function draw(c, t) {
   for (let k = 0; k < 3; k++) { const x = lx + 50 + k * 18; c.fillStyle = k < disks ? '#46d0ff' : '#2a2e3a'; c.fillRect(x, ly - 7, 13, 14); c.fillStyle = k < disks ? '#d8f4ff' : '#3a3e4a'; c.fillRect(x + 3, ly - 7, 7, 5); c.fillStyle = '#0c0e16'; c.fillRect(x + 7, ly - 6, 2, 3); }
   ly += 18; K.text(c, keycard ? 'KEYCARD ✓' : 'NO KEYCARD', lx, ly, 8, keycard ? '#ffd23f' : '#566078', 'left');
   K.text(c, 'MISSION ' + (mi + 1), lx, H - 7, 7, '#7a86a0', 'left');
+  }
   // minimap (tap to enlarge)
   const B = MAPBOX, gw = g[0].length, gh = g.length, ms = Math.min((B.w - 4) / gw, (B.h - 12) / gh), ox = B.x + (B.w - gw * ms) / 2, oy = B.y + 2;
-  c.fillStyle = '#05070c'; c.fillRect(B.x, B.y, B.w, B.h); c.strokeStyle = '#46d0ff'; c.lineWidth = 1; c.strokeRect(B.x + 0.5, B.y + 0.5, B.w - 1, B.h - 1);
+  c.fillStyle = LAND ? 'rgba(5,7,12,.7)' : '#05070c'; c.fillRect(B.x, B.y, B.w, B.h); c.strokeStyle = '#46d0ff'; c.lineWidth = 1; c.strokeRect(B.x + 0.5, B.y + 0.5, B.w - 1, B.h - 1);
   drawMap(c, ox, oy, ms, t, false);
   K.text(c, 'TAP: BIG MAP', B.x + B.w / 2, B.y + B.h - 5, 6, '#46d0ff');
-  if (msgT > 0) { c.fillStyle = 'rgba(0,0,0,.65)'; c.fillRect(0, 6, W, 26); c.font = '10px Rubik, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#ffd23f'; wrapText(c, msg, W / 2, 19, W - 12, 11); }
+  if (msgT > 0) { const my = LAND ? 84 : 6, mw = LAND ? Math.min(W, 300) : W, mx = (W - mw) / 2; c.fillStyle = 'rgba(0,0,0,.65)'; c.fillRect(mx, my, mw, 26); c.font = '10px Rubik, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#ffd23f'; wrapText(c, msg, W / 2, my + 13, mw - 12, 11); }
   // full-screen map
   if (bigMap) {
     c.fillStyle = 'rgba(4,6,12,.94)'; c.fillRect(0, 0, W, H);
@@ -361,6 +378,7 @@ function drawMap(c, ox, oy, ms, t, big) {
   const ar = Math.max(2.5, ms * 0.6); c.fillStyle = '#ffd23f'; c.beginPath(); c.moveTo(px + Math.cos(pl.a) * ar * 1.4, py + Math.sin(pl.a) * ar * 1.4); c.lineTo(px + Math.cos(pl.a + 2.5) * ar, py + Math.sin(pl.a + 2.5) * ar); c.lineTo(px + Math.cos(pl.a - 2.5) * ar, py + Math.sin(pl.a - 2.5) * ar); c.fill();
   c.restore();
 }
+layout();
 title();
 K.run(update, draw);
 </script>

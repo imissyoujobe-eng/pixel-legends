@@ -12,8 +12,9 @@
 // Doodle Dino: a storybook papercraft platformer. Run, jump and flutter, gulp paper critters into eggs,
 // throw eggs at blocks, switches and clouds, find 5 story pages per chapter and beat the Ink Blot.
 K.theme({ bg: '#2a2140', ink: '#fff4e2', accent: '#ff9a3c', accentInk: '#2a1300' });
-const VW = 168, VH = 232, T = 16, ROWS = 17;
+let VW = 168; const VH = 232, T = 16, ROWS = 17;
 K.screen(VW, VH, { smooth: true });
+K.flex(168, VH, w => { VW = w; }, { smooth: true }); // phone on its side: wider view that fills the screen
 K.hud(['score', 'chap', 'tries']);
 K.pad({ dpad: '4', buttons: [{ id: 'x', label: 'THROW' }, { id: 'b', label: 'GULP' }, { id: 'a', label: 'JUMP' }] });
 { const st = document.createElement('style'); st.textContent = '#kp .big{width:62px;height:62px;font-size:11px}#kp .kb{gap:8px}#kp{padding:10px 12px 14px}'; document.head.appendChild(st); }

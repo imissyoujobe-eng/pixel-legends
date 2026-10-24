@@ -15,6 +15,7 @@ const W = 240, H = 330;
 // the tower is laid out in a 200x275 space and drawn 1.2x bigger, one girder level shorter than before
 const SCL = 1.2, DW = W / SCL, DH = H / SCL;
 K.screen(W, H);
+K.zoomLand(1.6, () => pl ? pl.y * SCL - 24 : H); // phone on its side: zoomed in, the view follows you up the tower
 K.hud(['score', 'bonus', 'stage', 'lives']);
 K.pad({ dpad: '4', buttons: [{ id: 'a', label: 'JUMP' }] });
 

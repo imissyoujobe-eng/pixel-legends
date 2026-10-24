@@ -13,10 +13,11 @@
 // Shadow Strike: a ninja rescue mission. Throw stars, slash up close, free every hostage, and save your ninja magic for a crowd.
 K.theme({ bg: '#0a0a14', ink: '#f0f0ff', accent: '#ff3a4a', accentInk: '#fff' });
 // tall portrait view for phones: you see much more above and around the ninja
-const VW = 240, VH = 330, T = 16;
+let VW = 240; const VH = 330, T = 16;
 // 2.5D: play stays side-to-side, but the world is drawn 1.6x bigger with 3D blocks and buildings that recede into the distance
-const Z = 1.6, ZW = VW / Z, ZH = VH / Z, DEPTH = 0.8;
+const Z = 1.6, ZH = VH / Z, DEPTH = 0.8; let ZW = VW / Z;
 K.screen(VW, VH);
+K.flex(240, VH, w => { VW = w; ZW = VW / Z; }); // phone on its side: wider view that fills the screen
 K.hud(['score', 'hostages', 'lives']);
 K.pad({ dpad: '4', buttons: [{ id: 'c', label: 'MAGIC' }, { id: 'b', label: 'STAR' }, { id: 'a', label: 'JUMP' }] });
 { const st = document.createElement('style'); st.textContent = '#kp .kj{flex:none;width:112px;height:112px}#kp .kj i{width:50px;height:50px;margin:-25px 0 0 -25px}#kp .big{width:62px;height:62px;font-size:12px}#kp .kb{gap:8px}'; document.head.appendChild(st); }

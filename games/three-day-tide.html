@@ -13,8 +13,9 @@
 // Three Day Tide: in three days a great flood will swallow the town. Help the townsfolk to earn four tide charms and seal the sea wall. If time runs out, the clock rewinds, but your charms stay with you.
 K.theme({ bg: '#0a1020', ink: '#f0f6ff', accent: '#46d0ff', accentInk: '#002a3a' });
 // tall portrait view, zoomed in Z times on the world; the camera follows the hero smoothly
-const VW = 240, VH = 330, Z = 1.6, T = 16, HOUR = 4; // seconds per game hour
+let VW = 240; const VH = 330, Z = 1.6, T = 16, HOUR = 4; // seconds per game hour
 K.screen(VW, VH);
+K.flex(240, VH, w => { VW = w; }); // phone on its side: wider view that fills the screen
 K.hud(['day', 'clock', 'charms']);
 K.pad({ dpad: '4', buttons: [{ id: 'a', label: 'TALK' }] });
 const MAP = ["################################", "#..............#...............#", "#.HHHH....HHHH.#....HHHHHH.....#", "#.HHHH....HHHH......HHHHHH.....#", "#.HdHH....HHdH......HHdHHH.....#", "#......................B.......#", "#..B......,,,,,,,,,,,,.....B...#", "#.........,..CC......,.........#", "#.........,..CC..O...,.........#", "#.........,,,,,,,,,,,,.........#", "#..............................#", "#..HHHH........................#", "#..HHHH..........B.......HHHH..#", "#..HdHH..................HHdH..#", "#..............................#", "#.............................L#", ",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,", ",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,", ",,,,,,,,,,,,,A,,,,,,,,,,,,,,,,,,", "################WWWW====WWWWWWWW", "WWWWWWWWWWWWWWWWWWWW====WWWWWWWW", "WWWWWWWWWWWWWWWWWWWW====WWWWWWWW", "WWWWWWWWWWWWWWWWWWWW====WWWWWWWW", "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW"];

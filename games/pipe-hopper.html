@@ -13,10 +13,11 @@
 // Pipe Hopper: a classic run-and-jump adventure. Bonk blocks, stomp Grumps, grab berries to grow and sparks to throw fire. Reach the flag in each of four worlds.
 K.theme({ bg: '#0c0c14', ink: '#fffaf0', accent: '#ff5a36', accentInk: '#fff' });
 // tall portrait view for phones: a narrow, tall window makes everything big on screen
-const VW = 150, VH = 206, T = 16;
+let VW = 150; const VH = 206, T = 16;
 // hero hit boxes: small and powered-up; he now stands about as tall as the trees behind him
 const HW = 13, HS = 22, HB = 30, HERO = { jump: 375, gravity: 850 };
 K.screen(VW, VH);
+K.flex(150, VH, w => { VW = w; }); // phone on its side: wider view that fills the screen
 K.hud(['score', 'coins', 'world', 'time']);
 K.pad({ dpad: 'lr', buttons: [{ id: 'b', label: 'RUN' }, { id: 'a', label: 'JUMP' }] });
 

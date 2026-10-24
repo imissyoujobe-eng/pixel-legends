@@ -13,7 +13,7 @@
 // Jungle Fire: run and gun through three stages. Aim in eight directions, grab weapon capsules and take down the fortress wall at the end of each stage.
 K.theme({ bg: '#0c140a', ink: '#fffaf0', accent: '#ff5a36', accentInk: '#fff' });
 // tall portrait view (ratio ~0.73) for phones held upright
-const VW = 240, VH = 330, T = 16;
+let VW = 240; const VH = 330, T = 16;
 K.screen(VW, VH);
 K.hud(['score', 'gun', 'lives']);
 K.pad({ dpad: '4', buttons: [{ id: 'b', label: 'FIRE' }, { id: 'a', label: 'JUMP' }] });
@@ -40,6 +40,7 @@ const GUNS = { N: { n: 'RIFLE', rate: 0.22, spd: 260 }, R: { n: 'RAPID', rate: 0
 const SC = 1.35, AIM_ERR = [0.38, 0.26, 0.16];
 const ZRUN = 2.0, ZBOSS = 1.4;
 let Z = ZRUN, ZW = VW / Z, ZH = VH / Z;
+K.flex(240, VH, w => { VW = w; ZW = VW / Z; }); // phone on its side: wider view that fills the screen
 let state = 'title', si, w, p, cam, ents, shots, eshots, fx, caps, cans, tanks, ride, score, lives, gun, deadT, spawnT, boss, winT, msg, msgT, best = K.best('junglefire');
 function newGame() { si = 0; score = 0; lives = 5; gun = 'N'; load(); state = 'play'; }
 function title() { K.card({ title: 'JUNGLE FIRE', text: 'Hold FIRE to shoot. Hold up or down while firing to aim diagonally or straight up; press down on the ground to lie flat. Watch for helmets peeking out from behind rocks, logs and tall grass. Walk into a parked tank to drive it: FIRE blasts the cannon, JUMP hops, down + JUMP climbs out. Keep an eye on its fuel and armor!', best: best ? 'BEST ' + best : '', button: 'Lock and load', onStart: newGame }); }

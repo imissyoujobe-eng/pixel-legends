@@ -13,8 +13,9 @@
 'use strict';
 // Puff Pal: a mint-and-lavender cloud puff floats, inhales critters, spits stars and copies their powers across three dreamy lands to face Old Grumbark.
 K.theme({ bg: '#1c1236', ink: '#fbf4ff', accent: '#7ee8c0', accentInk: '#1c1236' });
-const VW = 160, VH = 216, T = 16;
+let VW = 160; const VH = 216, T = 16;
 K.screen(VW, VH, { smooth: true });
+K.flex(160, VH, w => { VW = w; }, { smooth: true }); // phone on its side: wider view that fills the screen
 K.hud(['score', 'level', 'lives']);
 K.pad({ dpad: '4', buttons: [{ id: 'x', label: 'COPY' }, { id: 'b', label: 'INHALE' }, { id: 'a', label: 'JUMP' }] });
 (function () { const s = document.createElement('style'); s.textContent = '#kp{padding:8px 12px 12px}#kp .big{width:62px;height:62px;font-size:10px}.kb{gap:8px}.kj{width:122px;height:122px}'; document.head.appendChild(s); })();

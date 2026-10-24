@@ -13,10 +13,11 @@
 // Vine Kings: a lemur's jungle romp. Roll through enemies, blast out of barrel cannons, ride the mine cart and spell V-I-N-E in every level.
 K.theme({ bg: '#0a1a0c', ink: '#fffaf0', accent: '#ffd23f', accentInk: '#2a1d00' });
 // tall portrait view for phones: same zoom on Bongo, but you see much more of the jungle above and around him
-const VW = 240, VH = 330, T = 16;
+let VW = 240; const VH = 330, T = 16;
 // camera zoom: the world is drawn 1.6x bigger so Bongo and the jungle fill the screen (a 150 x 206 slice of the world)
-const Z = 1.6, ZW = VW / Z, ZH = VH / Z;
+const Z = 1.6; let ZW = VW / Z; const ZH = VH / Z;
 K.screen(VW, VH);
+K.flex(240, VH, w => { VW = w; ZW = VW / Z; }); // phone on its side: wider view that fills the screen
 K.hud(['score', 'fruit', 'lives', 'letters']);
 K.pad({ dpad: 'lr', buttons: [{ id: 'b', label: 'ROLL' }, { id: 'a', label: 'JUMP' }] });
 

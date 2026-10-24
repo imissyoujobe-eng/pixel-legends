@@ -13,8 +13,9 @@
 // Knight Fright: a knight in shining (soon missing) armor storms a haunted graveyard to rescue the princess. One hit takes your armor, the next takes you.
 K.theme({ bg: '#0a0a12', ink: '#eef0ff', accent: '#7ad0ff', accentInk: '#001a2a' });
 // tall portrait view (ratio ~0.73) so the knight fills the phone screen
-const VW = 150, VH = 206, T = 16;
+let VW = 150; const VH = 206, T = 16;
 K.screen(VW, VH);
+K.flex(150, VH, w => { VW = w; }); // phone on its side: wider view that fills the screen
 K.hud(['score', 'weapon', 'lives']);
 K.pad({ dpad: '4', buttons: [{ id: 'b', label: 'THROW' }, { id: 'a', label: 'JUMP' }] });
 

@@ -11,10 +11,11 @@
 // Sky Tail: a fox's adventure across a world map. Find the sky leaf, run until your meter fills, then flap your tail to fly over the clouds.
 K.theme({ bg: '#120c1e', ink: '#fffaf0', accent: '#ff8a1f', accentInk: '#2a1000' });
 // tall portrait view for phones: a narrow, tall window makes everything big on screen
-const VW = 150, VH = 206, T = 16;
+let VW = 150; const VH = 206, T = 16;
 // fox hit boxes (small / powered), bigger than before so he reads well on a phone
 const HS = 20, HB = 28;
 K.screen(VW, VH);
+K.flex(150, VH, w => { VW = w; }); // phone on its side: wider view that fills the screen
 K.hud(['score', 'coins', 'lives', 'time']);
 K.pad({ dpad: '4', buttons: [{ id: 'b', label: 'SPIN' }, { id: 'a', label: 'JUMP' }] });
 </script>

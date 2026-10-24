@@ -13,8 +13,9 @@
 // Barbarian Blade: a sword-swinging hero crosses lava caves and ruined keeps to face the guardian at the end of each realm.
 K.theme({ bg: '#140a06', ink: '#fff2e0', accent: '#ff8a2a', accentInk: '#200a00' });
 // tall portrait view (ratio ~0.73) so the hero fills the phone screen
-const VW = 150, VH = 206, T = 16;
+let VW = 150; const VH = 206, T = 16;
 K.screen(VW, VH);
+K.flex(150, VH, w => { VW = w; }); // phone on its side: wider view that fills the screen
 K.hud(['score', 'weapon', 'lives']);
 K.pad({ dpad: '4', buttons: [{ id: 'b', label: 'SWING' }, { id: 'a', label: 'JUMP' }] });
 

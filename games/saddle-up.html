@@ -13,10 +13,11 @@
 // Saddle Up: hatch a dinosaur buddy, ride it through five lands, and CHOMP anything in your way. Find the five star coins in each land.
 K.theme({ bg: '#0c1a10', ink: '#fffaf0', accent: '#7cff6b', accentInk: '#0a2a00' });
 // tall portrait view for phones: a narrow, tall window makes everything big on screen
-const VW = 150, VH = 206, T = 16;
+let VW = 150; const VH = 206, T = 16;
 // rider hit boxes (small / grown), bigger than before so he reads well on a phone
 const HS = 20, HB = 28;
 K.screen(VW, VH);
+K.flex(150, VH, w => { VW = w; }); // phone on its side: wider view that fills the screen
 K.hud(['score', 'stars', 'lives', 'time']);
 K.pad({ dpad: 'lr', buttons: [{ id: 'b', label: 'CHOMP' }, { id: 'a', label: 'JUMP' }] });
 

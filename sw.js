@@ -1,5 +1,5 @@
 // Offline cache for Pixel Legends. Bump VERSION whenever you add or change a game.
-const VERSION = "legends-v25";
+const VERSION = "legends-v26";
 const FILES = [
  "./",
  "./games.js",
