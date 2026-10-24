@@ -21,7 +21,8 @@ const STAGES = [
   { n: 'Iron Fortress', sky: 0x1a0a14, fog: 0x2a1020, ground: 0x3a3a48, len: 1100, kind: 'base' }
 ];
 let muzzle = 0, state = 'title', renderer, scene, camera, stageEl, hudC, hud, ship, shipM, ents, shots, eshots, rings, fx, si, dist, score, shield, bombs, boss, fireT, touch, msg, msgT, best = K.best('wing');
-const X = 9, Y = 5.5; // ship bounds
+const X = 9, Y = 5.5, YHI = 30; // ship bounds: you can climb high into the sky or dive down to skim the ground
+const yLo = () => STAGES[si].ground !== null ? -8.2 : -28;
 function setup() {
   stageEl = document.getElementById('ks'); const kc = stageEl.querySelector('canvas'); if (kc) kc.style.display = 'none';
   renderer = new THREE.WebGLRenderer({ antialias: false }); renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
@@ -76,9 +77,9 @@ function update(dt) {
   if (msgT > 0) msgT -= dt;
   // ship control
   let ax = (K.down('right') ? 1 : 0) - (K.down('left') ? 1 : 0), ay = (K.down('up') ? 1 : 0) - (K.down('down') ? 1 : 0);
-  if (touch) { ax = K.clamp((touch.x * X - ship.x) / 2, -1, 1); ay = K.clamp((touch.y * Y + 1 - ship.y) / 2, -1, 1); }
-  ship.vx += ax * 60 * dt; ship.vy += ay * 50 * dt; ship.vx *= Math.pow(0.02, dt); ship.vy *= Math.pow(0.02, dt);
-  ship.x = K.clamp(ship.x + ship.vx * dt, -X, X); ship.y = K.clamp(ship.y + ship.vy * dt, -Y + (S.ground !== null ? 1.5 : 0), Y);
+  if (touch) { ax = K.clamp((touch.x * X - ship.x) / 2, -1, 1); ay = K.clamp(touch.y * 1.4, -1, 1); }
+  ship.vx += ax * 60 * dt; ship.vy += ay * 95 * dt; ship.vx *= Math.pow(0.02, dt); ship.vy *= Math.pow(0.02, dt);
+  ship.x = K.clamp(ship.x + ship.vx * dt, -X, X); ship.y = K.clamp(ship.y + ship.vy * dt, yLo(), YHI); if (ship.y <= yLo() + 0.01 || ship.y >= YHI - 0.01) ship.vy = 0;
   ship.roll += (-ship.vx * 0.06 - ship.roll) * Math.min(1, dt * 8);
   if (ship.inv > 0) ship.inv -= dt;
   // fire
@@ -89,15 +90,15 @@ function update(dt) {
   dist += SPEED * dt;
   if (scene.userData.grid) scene.userData.grid.position.z = -300 + (dist % 10);
   if (!boss) {
-    if (Math.random() < dt * (1.1 + si * 0.4)) { const k = S.kind === 'rocks' && Math.random() < 0.6 ? 'rock' : 'fighter'; const n = k === 'fighter' && Math.random() < 0.5 ? 3 : 1, bx = K.rnd(-X, X), by = K.rnd(-Y + 2, Y); for (let i = 0; i < n; i++) spawn(k, bx + i * 3 - (n - 1) * 1.5, by, -220 - i * 6, { vx: K.rnd(-4, 4), wave: Math.random() * 6 }); }
+    if (Math.random() < dt * (1.1 + si * 0.4)) { const k = S.kind === 'rocks' && Math.random() < 0.6 ? 'rock' : 'fighter'; const n = k === 'fighter' && Math.random() < 0.5 ? 3 : 1, bx = K.rnd(-X, X), by = K.clamp(ship.y + K.rnd(-6, 6), yLo() + 2, YHI); /* enemies show up around your height */ for (let i = 0; i < n; i++) spawn(k, bx + i * 3 - (n - 1) * 1.5, by, -220 - i * 6, { vx: K.rnd(-4, 4), wave: Math.random() * 6 }); }
     if (S.ground !== null && Math.random() < dt * 1.6) { const side = Math.random() < 0.5 ? -1 : 1; const tw = spawn('tower', side * K.rnd(6, 30), -10, -230); if (Math.abs(tw.x) < X + 2) tw.danger = true; }
     if (S.kind !== 'rocks' && S.ground !== null && Math.random() < dt * 0.4) spawn('turret', K.rnd(-X, X), -9, -230);
-    if (Math.random() < dt * 0.18) { const m = new THREE.Mesh(new THREE.TorusGeometry(2.2, 0.25, 6, 18), new THREE.MeshBasicMaterial({ color: 0xffd23f })); const r = { x: K.rnd(-X + 2, X - 2), y: K.rnd(-Y + 2, Y - 1), z: -220, m }; m.position.set(r.x, r.y, r.z); scene.add(m); rings.push(r); }
+    if (Math.random() < dt * 0.18) { const m = new THREE.Mesh(new THREE.TorusGeometry(2.2, 0.25, 6, 18), new THREE.MeshBasicMaterial({ color: 0xffd23f })); const r = { x: K.rnd(-X + 2, X - 2), y: K.clamp(ship.y + K.rnd(-4, 4), yLo() + 2, YHI - 1), z: -220, m }; m.position.set(r.x, r.y, r.z); scene.add(m); rings.push(r); }
     if (dist > S.len) { boss = spawn('boss', 0, 2, -160); boss.dir = 1; msg = 'WARNING: MOTHERSHIP!'; msgT = 2; K.tune([200, 150, 200, 150], 0.2, { type: 'sawtooth' }); }
   }
   // move things
   for (const e of ents) {
-    if (e.kind === 'boss') { e.z = Math.min(-60, e.z + 30 * dt); e.t += dt; e.x = Math.sin(e.t * 0.7) * 7; e.y = 2 + Math.sin(e.t * 1.1) * 3; if (e.z >= -61 && Math.random() < dt * (1.2 + si * 0.4)) for (let k = -1; k <= 1; k++) shootAt(e, k * 0.12); e.m.userData.core.material.color.setHex(e.hit > 0 ? 0xffffff : 0xff3b5c); }
+    if (e.kind === 'boss') { e.z = Math.min(-60, e.z + 30 * dt); e.t += dt; e.x = Math.sin(e.t * 0.7) * 7; e.y += (K.clamp(ship.y, yLo() + 4, YHI - 4) + Math.sin(e.t * 1.1) * 3 - e.y) * Math.min(1, dt * 0.8); if (e.z >= -61 && Math.random() < dt * (1.2 + si * 0.4)) for (let k = -1; k <= 1; k++) shootAt(e, k * 0.12); e.m.userData.core.material.color.setHex(e.hit > 0 ? 0xffffff : 0xff3b5c); }
     else { e.z += SPEED * dt * (e.kind === 'fighter' ? 1.3 : 1); if (e.kind === 'fighter') { e.t += dt; e.x += Math.sin(e.t * 2 + e.wave) * 6 * dt + e.vx * dt; if (e.z > -150 && e.z < -40 && Math.random() < dt * (0.6 + si * 0.3)) shootAt(e, 0); } if (e.kind === 'turret' && e.z > -140 && e.z < -30 && Math.random() < dt * 0.8) shootAt(e, 0); if (e.kind === 'rock') { e.m.rotation.x += dt; e.m.rotation.y += dt * 0.7; } }
     if (e.hit > 0) e.hit -= dt;
     e.m.position.set(e.x, e.y, e.z);
@@ -172,7 +173,7 @@ let hdg = 0;
 function draw() {
   if (!renderer || !scene) return;
   // first-person: the camera IS the pilot's head
-  camera.position.set(ship.x, ship.y, 0.6); camera.lookAt(ship.x, ship.y, -30); camera.rotateZ(ship.roll * 1.4);
+  camera.position.set(ship.x, ship.y, 0.6); camera.lookAt(ship.x, ship.y + K.clamp(ship.vy * 0.9, -9, 9), -30); // nose tips up when climbing, down when diving camera.rotateZ(ship.roll * 1.4);
   renderer.render(scene, camera);
   const c = hud, w = hudC._w, h = hudC._h, now = performance.now(); c.clearRect(0, 0, w, h);
   const dy = h - DASH, vh = VIEWH, cx = w / 2, cy = VIEWH / 2;
@@ -237,7 +238,7 @@ function draw() {
   const spd = 420 + ship.vy * -6 + Math.sin(now / 700) * 4 + (boss ? -60 : 0), alt = Math.round((ship.y + 11) * 120);
   const xs = [0, 1, 2, 3].map(i => 12 + (w - 40) * (i + 0.5) / 4);
   dial(c, xs[0], dyc, r, 'KNOTS', 0.8, spd / 600, 6, String(Math.round(spd)), '#ff3b3b');
-  dial(c, xs[1], dyc, r, 'ALT', 0, alt / 2000, 5, String(alt), null);
+  dial(c, xs[1], dyc, r, 'ALT', 0, alt / 5000, 5, String(alt), null);
   compass(c, xs[2], dyc, r, hdg);
   dial(c, xs[3], dyc, r, 'SHIELD', 0, Math.max(0, shield) / 100, 4, Math.max(0, Math.round(shield)) + '%', null);
   // shield low zone on the shield dial
