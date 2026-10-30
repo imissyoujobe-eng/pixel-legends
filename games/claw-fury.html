@@ -21,6 +21,7 @@ K.pad({ dpad: '4', buttons: [{ id: 'y', label: 'RAGE' }, { id: 'x', label: 'LUNG
   const s = document.createElement('style');
   s.textContent = '#kp .kb{display:grid;grid-template-columns:repeat(2,64px);gap:8px 10px}#kp .big{width:64px;height:64px;font-size:11px}' +
     '#kp button[aria-label=y]{background:rgba(232,69,44,.22)}#kp button[aria-label=y].ready{background:#e8452c;color:#fff;animation:rg .45s infinite alternate}' +
+    'body.touch.land #kp .kb{grid-template-columns:repeat(2,auto)}body.touch.land #kp .big{--bs:90px}' +
     '@keyframes rg{to{box-shadow:0 0 18px 5px #ff8a2a,0 4px 0 rgba(0,0,0,.35)}}';
   document.head.appendChild(s);
 })();
