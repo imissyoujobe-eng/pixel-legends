@@ -10,7 +10,7 @@
 <script src="../lib/art.js"></script>
 <script src="../lib/three.min.js"></script>
 <script>
-// Barnyard Brigade: strictly turn-based squad battle on a 3D farm you can blow apart. Your helmeted goats take on the computer's rooster regiment.
+// Barnyard Brigade: strictly turn-based squad battle on a 3D farm you can blow apart. Your pig squad in woodland camo takes on the computer's goat regiment in desert camo.
 // Only the active soldier moves or shoots, like chess. A high overhead camera shows the whole battlefield; after each big shot the camera rides the rocket in.
 K.theme({ bg: '#10203a', ink: '#fff8ea', accent: '#ffd23f', accentInk: '#2a1d00' });
 K.hud(['you', 'turn', 'cpu']);
@@ -31,11 +31,11 @@ const WEAPONS = [
   { n: 'HELLFIRE', r: 22, dmg: 42, ammo: 1, cam: true, hellfire: true },
   { n: 'AIRSTRIKE', r: 20, dmg: 40, ammo: 1, cam: true, airstrike: true }
 ];
-const NAMES = [['Billy', 'Nanny', 'Butch', 'Gruff'], ['Red', 'Rusty', 'Colonel', 'Dusty']];
+const NAMES = [['Sarge', 'Trotter', 'Butch', 'Hammer'], ['Billy', 'Nanny', 'Gruff', 'Colonel']];
 
 let state = 'title', renderer, scene, camera, stageEl, hudC, hx, terrain, heights, colors, water, units = [], turnTeam, idx, phase, weapon, ammo, shots = [], fx = [], wind, turnT, walkLeft, reticle, aiming, msg, msgT, level = 1, wins = K.best('barnyard-wins'), settleT, slowT = 0, killCam = null, camPos, camLook, tapPt = null, thinkT = 0, cpuPlan = null, boomLights = [], turnDir = { x: 1, z: 0 }, menuRects = [];
 
-function title() { K.card({ title: 'BARNYARD BRIGADE', text: 'Goats versus roosters, one move at a time. On your turn walk your soldier with the joystick (a short way), then press AIM or tap the field to place the target, pick a gun with GUN and press FIRE. The rifle shoots straight; the bazooka, grenade and missile fly in and the camera rides along (tap to skip). Watch the wind. Knock every rooster out or into the pond to win.', best: wins ? 'WINS ' + wins : '', button: 'Battle!', onStart: () => { if (!renderer) setup(); start(); } }); }
+function title() { K.card({ title: 'BARNYARD BRIGADE', text: 'Pigs versus goats, one move at a time. On your turn walk your soldier with the joystick (a short way), then press AIM or tap the field to place the target, pick a gun with GUN and press FIRE. The rifle shoots straight; the bazooka, grenade and missile fly in and the camera rides along (tap to skip). Watch the wind. Knock every goat out or into the pond to win.', best: wins ? 'WINS ' + wins : '', button: 'Battle!', onStart: () => { if (!renderer) setup(); start(); } }); }
 
 // ---------- 3D setup ----------
 function setup() {
@@ -124,42 +124,98 @@ function build() {
   camPos = new THREE.Vector3(0, 280, 190); camLook = new THREE.Vector3(0, 0, 10);
 }
 // ---------- soldiers ----------
-function goat() {
-  const g = new THREE.Group(), fur = mat(0xe8e2d6), dark = mat(0x6a5a48);
-  const body = new THREE.Mesh(new THREE.SphereGeometry(3, 12, 10), fur); body.scale.set(1.35, 1, 0.95); body.position.y = 4.4; g.add(body);
-  [[-2.2, -1.4], [-2.2, 1.4], [2.2, -1.4], [2.2, 1.4]].forEach(([x, z]) => { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.45, 3.2, 6), dark); l.position.set(x, 1.6, z); g.add(l); });
-  const head = new THREE.Mesh(new THREE.SphereGeometry(1.9, 12, 10), fur); head.scale.set(1.2, 1, 0.9); head.position.set(4.2, 6.6, 0); g.add(head);
-  const beard = new THREE.Mesh(new THREE.ConeGeometry(0.7, 1.8, 6), mat(0xb8a888)); beard.position.set(5, 4.9, 0); beard.rotation.z = Math.PI; g.add(beard);
-  [-0.8, 0.8].forEach(z => { const horn = new THREE.Mesh(new THREE.ConeGeometry(0.45, 2.4, 6), mat(0x8a7a5a)); horn.position.set(3.6, 8.6, z); horn.rotation.z = 0.6; g.add(horn); const eye = new THREE.Mesh(new THREE.SphereGeometry(0.3, 6, 6), mat(0x111111)); eye.position.set(5.6, 7.1, z * 0.9); g.add(eye); });
-  const helmet = new THREE.Mesh(new THREE.SphereGeometry(2.05, 12, 6, 0, 6.3, 0, 1.4), mat(0x3a6ad8)); helmet.position.set(4.1, 7.1, 0); g.add(helmet);
-  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.4, 6), fur); tail.position.set(-4, 5.4, 0); tail.rotation.z = 0.9; g.add(tail);
+// camo cloth: a small painted texture of blotches, woodland green for your pigs, desert tan for the goats
+const CAMO = {};
+function camoMat(kind) {
+  if (!CAMO[kind]) {
+    const cols = kind === 'wood' ? ['#4a5a2a', '#2f3a1c', '#6b6a3a', '#1e2414'] : ['#c8b07a', '#9a7a4a', '#e0cfa0', '#6e5634'];
+    const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+    x.fillStyle = cols[0]; x.fillRect(0, 0, 64, 64);
+    for (let i = 0; i < 46; i++) { x.fillStyle = cols[1 + (i % 3)]; x.beginPath(); const px = A.hash(i, 7, kind.length) * 64, py = A.hash(i, 9, kind.length) * 64, r = 3 + A.hash(i, 11) * 6; x.ellipse(px, py, r * 1.5, r, A.hash(i, 13) * 3, 0, 7); x.fill(); }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 2);
+    CAMO[kind] = new THREE.MeshLambertMaterial({ map: t });
+  }
+  return CAMO[kind];
+}
+function add(g, geo, m, x, y, z, rx, ry, rz) { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.rotation.set(rx || 0, ry || 0, rz || 0); g.add(o); return o; }
+// steel helmet with a camo cover, chin strap and a team-colored stripe
+function helmet(g, kind, team, x, y, r) {
+  add(g, new THREE.SphereGeometry(r, 14, 8, 0, 6.3, 0, 1.45), camoMat(kind), x, y, 0);
+  add(g, new THREE.CylinderGeometry(r * 1.08, r * 1.12, 0.3, 16), mat(kind === 'wood' ? 0x2f3a1c : 0x7a5e38), x, y + 0.1, 0);
+  add(g, new THREE.TorusGeometry(r * 1.0, 0.16, 4, 18, Math.PI), mat(0x3a2a1a), x + 0.2, y - 0.4, 0, 0, Math.PI / 2, 0);
+  add(g, new THREE.CylinderGeometry(r * 1.02, r * 1.04, 0.5, 18, 1, true), mat(team ? 0xd83a2a : 0x2a7ad8, { side: THREE.DoubleSide }), x, y + 0.55, 0);
+}
+// rucksack with a rolled sleeping mat on top
+function backpack(g, kind, x, y) {
+  add(g, new THREE.BoxGeometry(2.2, 3, 3.2), camoMat(kind), x, y, 0);
+  add(g, new THREE.BoxGeometry(0.6, 1.4, 2.4), mat(kind === 'wood' ? 0x3a4422 : 0x8a6e44), x - 1.3, y - 0.4, 0);
+  add(g, new THREE.CylinderGeometry(0.7, 0.7, 3.4, 10), mat(0x5a4a2a), x, y + 2.1, 0, Math.PI / 2, 0, 0);
+}
+// rifle slung along the side: wooden stock, dark receiver, barrel and magazine
+function rifle(g, x, y, z) {
+  const r = new THREE.Group(); g.add(r); r.position.set(x, y, z); r.rotation.z = 0.35;
+  add(r, new THREE.BoxGeometry(2, 0.7, 0.4), mat(0x7a4a22), -2.2, -0.2, 0);
+  add(r, new THREE.BoxGeometry(2.4, 0.8, 0.45), mat(0x222428), 0, 0, 0);
+  add(r, new THREE.CylinderGeometry(0.16, 0.16, 3.4, 6), mat(0x111214), 2.8, 0.15, 0, 0, 0, Math.PI / 2);
+  add(r, new THREE.BoxGeometry(0.45, 1.1, 0.35), mat(0x222428), 0.4, -0.85, 0, 0, 0, 0.2);
+  add(r, new THREE.BoxGeometry(1, 0.3, 0.3), mat(0x111214), 0.2, 0.55, 0);
+}
+// ammo belt / vest straps across the chest
+function straps(g, kind, x, y, rx, ry) {
+  [-1, 1].forEach(s => add(g, new THREE.BoxGeometry(0.5, ry, 0.35), mat(0x3a2a1a), x + s * 0.4, y, s * rx, s * 0.5, 0, 0));
+  for (let k = 0; k < 4; k++) add(g, new THREE.BoxGeometry(0.55, 0.9, 0.5), mat(kind === 'wood' ? 0x3a4422 : 0x8a6e44), x + 0.6, y - 1 + k * 0.3, -1.2 + k * 0.8);
+}
+function pig() {
+  const g = new THREE.Group(), skin = mat(0xf0a0a8), dark = mat(0x3a2a22), K2 = 'wood';
+  const body = add(g, new THREE.SphereGeometry(3, 16, 12), skin, 0, 4.4, 0); body.scale.set(1.4, 1, 1);
+  const vest = add(g, new THREE.SphereGeometry(3.08, 16, 12, 0, 6.3, 0.35, 1.9), camoMat(K2), 0.3, 4.5, 0); vest.scale.set(1.15, 1, 1.02);
+  [[-2.4, -1.4], [-2.4, 1.4], [2.4, -1.4], [2.4, 1.4]].forEach(([x, z]) => { add(g, new THREE.CylinderGeometry(0.6, 0.55, 2.6, 8), skin, x, 1.7, z); add(g, new THREE.CylinderGeometry(0.62, 0.62, 0.7, 8), dark, x, 0.35, z); add(g, new THREE.CylinderGeometry(0.66, 0.66, 0.9, 8), camoMat(K2), x, 2.4, z); });
+  const head = add(g, new THREE.SphereGeometry(2.1, 16, 12), skin, 4.3, 6.2, 0); head.scale.set(1.05, 1, 1);
+  add(g, new THREE.CylinderGeometry(1, 1.1, 1, 14), mat(0xe88894), 6.3, 5.8, 0, 0, 0, Math.PI / 2);
+  [-0.4, 0.4].forEach(z => add(g, new THREE.CylinderGeometry(0.22, 0.22, 0.2, 8), mat(0x6a3038), 6.85, 5.8, z, 0, 0, Math.PI / 2));
+  [-0.85, 0.85].forEach(z => { add(g, new THREE.SphereGeometry(0.34, 8, 8), mat(0xffffff), 5.75, 6.8, z * 0.95); add(g, new THREE.SphereGeometry(0.2, 8, 8), mat(0x111111), 6.02, 6.82, z * 0.98); add(g, new THREE.BoxGeometry(0.5, 0.15, 0.5), dark, 5.8, 7.25, z, 0, 0, z > 0 ? -0.25 : 0.25); add(g, new THREE.ConeGeometry(0.7, 1.4, 6), mat(0xe08890), 3.6, 7.6, z * 1.7, z * 0.5, 0, 0.5); });
+  helmet(g, K2, 0, 4.1, 7.4, 2.2);
+  backpack(g, K2, -1.4, 7.6);
+  rifle(g, 0.4, 5.6, 3.3);
+  straps(g, K2, 2.4, 5, 1.2, 4.6);
+  const tail = add(g, new THREE.TorusGeometry(0.5, 0.18, 6, 12, 5), mat(0xf0a0a8), -4.3, 5.2, 0, 0, Math.PI / 2, 0);
   return g;
 }
-function rooster() {
-  const g = new THREE.Group(), red = mat(0xc8502c);
-  const body = new THREE.Mesh(new THREE.SphereGeometry(3, 12, 10), red); body.scale.set(1.15, 1.05, 0.95); body.position.y = 4.6; g.add(body);
-  [-1, 1].forEach(z => { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 2.6, 6), mat(0xffb02e)); l.position.set(0, 1.3, z); g.add(l); const foot = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.3, 0.8), mat(0xffb02e)); foot.position.set(0.5, 0.15, z); g.add(foot); });
-  for (let k = 0; k < 4; k++) { const f = new THREE.Mesh(new THREE.ConeGeometry(0.9, 5, 5), mat(k % 2 ? 0x2a6a3a : 0x1a4a8a)); f.position.set(-3.6, 6.8 + k * 0.4, -0.8 + k * 0.5); f.rotation.z = 0.9 + k * 0.2; g.add(f); }
-  const head = new THREE.Mesh(new THREE.SphereGeometry(1.7, 12, 10), mat(0xe8e2d6)); head.position.set(2.8, 8, 0); g.add(head);
-  const beak = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.6, 6), mat(0xffb02e)); beak.rotation.z = -Math.PI / 2; beak.position.set(4.7, 7.9, 0); g.add(beak);
-  const wattle = new THREE.Mesh(new THREE.SphereGeometry(0.55, 6, 6), mat(0xd83a3a)); wattle.position.set(4, 6.8, 0); g.add(wattle);
-  for (let k = 0; k < 3; k++) { const cmb = new THREE.Mesh(new THREE.SphereGeometry(0.7, 6, 6), mat(0xd83a3a)); cmb.position.set(2.2 + k * 0.8, 9.7 + (k === 1 ? 0.3 : 0), 0); g.add(cmb); }
-  [-0.7, 0.7].forEach(z => { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.28, 6, 6), mat(0x111111)); eye.position.set(3.9, 8.4, z); g.add(eye); });
-  const helmet = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.9, 0.5, 12), mat(0x5a6a3a)); helmet.position.set(2.7, 9.2, 0); g.add(helmet);
+function goat() {
+  const g = new THREE.Group(), fur = mat(0xe8e2d6), dark = mat(0x4a3a2c), K2 = 'desert';
+  const body = add(g, new THREE.SphereGeometry(3, 16, 12), fur, 0, 4.6, 0); body.scale.set(1.35, 1, 0.95);
+  const vest = add(g, new THREE.SphereGeometry(3.08, 16, 12, 0, 6.3, 0.35, 1.9), camoMat(K2), 0.3, 4.7, 0); vest.scale.set(1.1, 1, 0.98);
+  [[-2.2, -1.4], [-2.2, 1.4], [2.2, -1.4], [2.2, 1.4]].forEach(([x, z]) => { add(g, new THREE.CylinderGeometry(0.45, 0.4, 3.2, 8), fur, x, 1.7, z); add(g, new THREE.CylinderGeometry(0.47, 0.47, 0.6, 8), dark, x, 0.3, z); add(g, new THREE.CylinderGeometry(0.55, 0.55, 1.1, 8), camoMat(K2), x, 2.6, z); });
+  add(g, new THREE.CylinderGeometry(1, 1.2, 2.2, 10), fur, 3.3, 6.3, 0, 0, 0, -0.7);
+  const head = add(g, new THREE.SphereGeometry(1.8, 16, 12), fur, 4.4, 7.4, 0); head.scale.set(1.35, 0.95, 0.85);
+  add(g, new THREE.SphereGeometry(0.9, 10, 8), mat(0xd8cfc0), 6.3, 7, 0).scale.set(1, 0.8, 0.9);
+  [-0.3, 0.3].forEach(z => add(g, new THREE.SphereGeometry(0.14, 6, 6), mat(0x3a2a22), 7.15, 7.15, z));
+  add(g, new THREE.ConeGeometry(0.6, 2, 8), mat(0xb8a888), 5.9, 5.6, 0, 0, 0, Math.PI);
+  [-0.8, 0.8].forEach(z => {
+    add(g, new THREE.SphereGeometry(0.34, 8, 8), mat(0xfff6c8), 5.6, 7.8, z * 0.9); add(g, new THREE.BoxGeometry(0.12, 0.42, 0.2), mat(0x111111), 5.92, 7.8, z * 0.95);
+    add(g, new THREE.BoxGeometry(0.5, 0.15, 0.5), dark, 5.6, 8.25, z, 0, 0, z > 0 ? -0.3 : 0.3);
+    add(g, new THREE.ConeGeometry(0.35, 1.5, 6), fur, 3.9, 7.9, z * 1.9, z * 1.7, 0, 0);
+    const horn = add(g, new THREE.ConeGeometry(0.4, 2.8, 8), mat(0x6a5a3a), 3, 9.6, z * 0.9, z * 0.15, 0, 0.9);
+  });
+  helmet(g, K2, 1, 4.2, 8.3, 1.9);
+  backpack(g, K2, -1.4, 7.6);
+  rifle(g, 0.4, 5.6, 3);
+  straps(g, K2, 2.3, 5.2, 1.1, 4.4);
+  add(g, new THREE.ConeGeometry(0.5, 1.4, 6), fur, -4, 5.8, 0, 0, 0, 0.9);
   return g;
 }
 function start() {
   if (scene) { scene.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
   scorch.fill(0); build();
   units = []; const n = Math.min(4, 3 + Math.floor((level - 1) / 2));
-  [0, 1].forEach(team => { for (let i = 0; i < n; i++) { const x = (team ? 1 : -1) * (75 + (i % 2) * 22) + K.rnd(-6, 6), z = -45 + i * 32 + K.rnd(-6, 6), m = team ? rooster() : goat(); m.scale.setScalar(2.2); scene.add(m); units.push({ team, name: NAMES[team][i], x, z, y: hAt(x, z), vx: 0, vy: 0, vz: 0, hp: 100, alive: true, yaw: team ? Math.PI : 0, onG: true, m }); } });
+  [0, 1].forEach(team => { for (let i = 0; i < n; i++) { const x = (team ? 1 : -1) * (75 + (i % 2) * 22) + K.rnd(-6, 6), z = -45 + i * 32 + K.rnd(-6, 6), m = team ? goat() : pig(); m.scale.setScalar(2.2); scene.add(m); units.push({ team, name: NAMES[team][i], x, z, y: hAt(x, z), vx: 0, vy: 0, vz: 0, hp: 100, alive: true, yaw: team ? Math.PI : 0, onG: true, m }); } });
   ammo = [WEAPONS.map(w => w.ammo), WEAPONS.map(w => w.ammo)];
   shots = []; fx = []; turnTeam = 1; idx = [-1, -1]; state = 'play'; killCam = null; slowT = 0;
   nextTurn();
 }
 function alive(team) { return units.filter(u => u.alive && u.team === team); }
 function cur() { return units.filter(u => u.team === turnTeam)[idx[turnTeam]]; }
-function hud() { const hp = t => alive(t).reduce((a, u) => a + u.hp, 0); K.set('you', 'GOATS ' + hp(0)); K.set('turn', turnTeam === 0 ? 'YOUR TURN' : 'CPU TURN'); K.set('cpu', 'ROOSTERS ' + hp(1)); }
+function hud() { const hp = t => alive(t).reduce((a, u) => a + u.hp, 0); K.set('you', 'PIGS ' + hp(0)); K.set('turn', turnTeam === 0 ? 'YOUR TURN' : 'CPU TURN'); K.set('cpu', 'GOATS ' + hp(1)); }
 function say(t, d) { msg = t; msgT = d || 1.4; }
 function nextTurn() {
   if (!alive(0).length || !alive(1).length) return endGame();
@@ -176,7 +232,7 @@ function endGame() {
   if (state !== 'play') return; state = 'over'; const win = alive(0).length > 0;
   if (win) { wins++; level++; try { localStorage.setItem('pa-barnyard-wins', wins); } catch (e) {} K.tune([523, 659, 784, 1047, 1319], 0.1); }
   else K.tune([392, 330, 262, 196], 0.15);
-  setTimeout(() => K.card({ title: win ? 'GOATS WIN!' : 'ROOSTERS WIN', text: win ? 'The barnyard is yours! ' + alive(0).length + ' goat' + (alive(0).length === 1 ? '' : 's') + ' still standing. The roosters will aim better next time.' : 'Your squad got plucked. Regroup and try again!', best: 'WINS ' + wins, button: win ? 'Next battle' : 'Rematch', onStart: start }), 900);
+  setTimeout(() => K.card({ title: win ? 'PIGS WIN!' : 'GOATS WIN', text: win ? 'The barnyard is yours! ' + alive(0).length + ' pig' + (alive(0).length === 1 ? '' : 's') + ' still standing. The goats will aim better next time.' : 'Your squad got turned into bacon. Regroup and try again!', best: 'WINS ' + wins, button: win ? 'Next battle' : 'Rematch', onStart: start }), 900);
 }
 
 // ---------- shooting ----------
@@ -460,7 +516,7 @@ function drawHud(t, u) {
   txt(WEAPONS[wpn].n, 96, 26, 12, '#ffd23f', 'left');
   txt(ammo[turnTeam][wpn] < 50 ? 'AMMO x' + ammo[turnTeam][wpn] : 'AMMO ∞', 96, 43, 8, '#fff', 'left');
   if (phase === 'move' || phase === 'cpu') { txt(Math.ceil(turnT) + 's', 190, 26, 11, turnT < 6 ? '#ff6a4a' : '#fff', 'right'); hx.fillStyle = '#333'; hx.fillRect(96, 58, 94, 6); hx.fillStyle = '#7cd65a'; hx.fillRect(96, 58, 94 * Math.max(0, walkLeft) / WALK, 6); txt('WALK', 96, 70, 7, '#cfe8c8', 'left'); }
-  // weapon menu beside the active goat's name tag (tap a tile to switch)
+  // weapon menu beside the active pig's name tag (tap a tile to switch)
   menuRects = [];
   if (turnTeam === 0 && phase === 'move' && u && u.alive) {
     const p = proj(u.x, u.y + 27, u.z), S = 38, G = 5, cols = 3, rows = Math.ceil(WEAPONS.length / cols), mw = cols * S + (cols - 1) * G, mh = rows * S + (rows - 1) * G;
