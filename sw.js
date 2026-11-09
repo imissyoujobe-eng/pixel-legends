@@ -1,5 +1,5 @@
-// Offline cache for Pixel Legends. Bump VERSION whenever you add or change a game.
-const VERSION = "legends-v29";
+// Offline cache for Nine-10-Doe Arcade. Bump VERSION whenever you add or change a game.
+const VERSION = "legends-v30";
 const FILES = [
  "./",
  "./games.js",

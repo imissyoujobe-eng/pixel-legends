@@ -1,4 +1,4 @@
-// The game list for the Pixel Legends menu.
+// The game list for the Nine-10-Doe Arcade menu.
 // To add a game: put its file in games/ and add one line below.
 window.ARCADE_TOTAL = 31;
 window.ARCADE_GAMES = [
