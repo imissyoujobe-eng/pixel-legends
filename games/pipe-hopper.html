@@ -9,6 +9,7 @@
 <script src="../lib/kit.js"></script>
 <script src="../lib/plat.js"></script>
 <script src="../lib/art.js"></script>
+<script src="../lib/roster.js"></script>
 <script>
 // Pipe Hopper: a classic run-and-jump adventure. Bonk blocks, stomp Grumps, grab berries to grow and sparks to throw fire. Reach the flag in each of four worlds.
 K.theme({ bg: '#0c0c14', ink: '#fffaf0', accent: '#ff5a36', accentInk: '#fff' });
@@ -111,7 +112,8 @@ function update(dt) {
   }
   if (p.fell) { p.fell = false; return die(); }
   // fireballs
-  if (power === 2 && K.hit('b')) { fx.push({ t: 'fire', x: p.x + (p.face > 0 ? p.w : -6), y: p.y + p.h * 0.45, vx: p.face * 200, vy: 0, l: 2, fire: true }); K.beep(700, 0.06, { to: 300, vol: 0.05 }); }
+  if (p.throwT > 0) p.throwT -= dt;
+  if (power === 2 && K.hit('b')) { p.throwT = 0.18; fx.push({ t: 'fire', x: p.x + (p.face > 0 ? p.w : -6), y: p.y + p.h * 0.45, vx: p.face * 200, vy: 0, l: 2, fire: true }); K.beep(700, 0.06, { to: 300, vol: 0.05 }); }
   for (const f of fx) if (f.fire) {
     f.vy = Math.min(250, f.vy + 900 * dt);
     if (P.isSolid(P.tile(w, f.x, f.y + 4))) { f.vy = -150; f.y -= 2; }
@@ -290,6 +292,11 @@ function draw(c, t) {
   drawHero(c, Math.round(p.x - cam.x), Math.round(p.y - cam.y), t);
   if (msgT > 0) K.text(c, msg, VW / 2, 56, 14, '#fff');
 }
+// pick your player: Bo, or one of the two new heroes
+Roster.offer({ classic: 'Bo', thumb: (g, W, H, t) => {
+  const sp = p, sw = power; p = { x: 0, y: 0, w: HW, h: HB, face: 1, vx: 0, vy: 0, ground: true, anim: 0, inv: 0 }; power = 0;
+  try { g.save(); g.scale(1.45, 1.45); (drawHero.classic || drawHero)(g, 18 / 1.45 - HW / 2, 50 / 1.45 - HB, t); g.restore(); } finally { p = sp; power = sw; }
+} });
 title();
 const ART = [{ pal: A.PAL.earth, sky: { top: '#2a7ae0', mid: '#8ad0ff', bottom: '#e8f8ff', sun: '#fff6c0', sunY: 50 }, layers: [{ factor: 0.12, base: 150, amp: 45, col: '#7ab8a8', edge: 'rgba(0,0,0,.18)', seed: 2, fog: 'rgba(220,240,255,.35)' }, { factor: 0.28, base: 185, amp: 40, col: '#4a9a5a', edge: 'rgba(0,0,0,.3)', seed: 5 }, { t: 'trees', factor: 0.45, base: 212, col: '#2a7a3a', hi: '#4aa04a', kind: 'round', spacing: 28, ground: true }], amb: "dust", vig: .2 }, { pal: Object.assign({}, A.PAL.stone, { base: '#4a5078', hi: '#6a72a0', lo: '#2e3250', mortar: '#14162a' }), sky: { top: '#06060f', mid: '#10102a', bottom: '#1a1a3a', clouds: false }, layers: [{ factor: 0.15, base: 150, amp: 70, col: '#18183a', edge: 'rgba(120,140,255,.25)', seed: 7 }, { factor: 0.3, base: 200, amp: 50, col: '#10102a', edge: 'rgba(120,140,255,.3)', seed: 3 }], amb: "dust", vig: .45 }, { pal: Object.assign({}, A.PAL.earth, { base: '#c88a4a', hi: '#e8aa6a', lo: '#9a5a2a', mortar: '#5a3014', grass: '#e8c06a', grassHi: '#fff0a0', grassLo: '#b08a3a' }), sky: { top: '#3a2a6a', mid: '#ff8a5a', bottom: '#ffd88a', sun: '#ffe8a0', sunY: 80, sunR: 18 }, layers: [{ factor: 0.12, base: 160, amp: 60, col: '#a05a5a', bands: ['rgba(255,200,150,.25)', 'rgba(120,40,40,.25)'], mesa: true, edge: 'rgba(0,0,0,.25)', seed: 1, fog: 'rgba(255,220,180,.2)' }, { factor: 0.3, base: 195, amp: 50, col: '#7a3a3a', bands: ['rgba(255,160,100,.3)', 'rgba(60,20,20,.3)'], mesa: true, edge: 'rgba(0,0,0,.45)', seed: 4 }, { t: 'trees', factor: 0.5, base: 215, col: '#4a2a2a', kind: 'palm', spacing: 46 }], amb: "leaf", vig: .25 }, { pal: A.PAL.castle, sky: { top: '#060208', mid: '#2a0a0a', bottom: '#7a1a0a', clouds: false }, layers: [{ factor: 0.15, base: 170, amp: 50, col: '#2a0a0a', mesa: true, edge: 'rgba(255,90,30,.35)', seed: 9 }, { factor: 0.3, base: 205, amp: 40, col: '#180606', mesa: true, edge: 'rgba(255,90,30,.4)', seed: 2 }], amb: "ember", vig: .45, glow: "255,80,20" }];
 
@@ -305,6 +312,23 @@ drawHero = (function (fn) {
     fn(o, x, y, t);
     A.outlined(c, oc, ox, oy, BW, BH, 0.7);
   };
+})(drawHero);
+drawHero = (function (classic) {
+  const f = function (c, x, y, t) {
+    if (!Roster.on()) return classic(c, x, y, t);
+    if (p.inv > 0 && Math.floor(t / 60) % 2) return;
+    let pose = 'idle';
+    if (deadT > 0) pose = 'hurt';
+    else if (p.throwT > 0) pose = 'throw1';
+    else if (!p.ground) pose = p.vy < 0 ? 'jump' : 'fall';
+    else if (p.crouch) pose = 'crouch';
+    else if (Math.abs(p.vx) > 5) pose = 'run';
+    const fx = x + p.w / 2, fy = y + p.h, k = p.h / 30;
+    if (p.ground && !deadT) { c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath(); c.ellipse(fx, fy, 7 * k, 1.6 * k, 0, 0, 7); c.fill(); }
+    Roster.draw(c, pose, fx, fy + 0.5, p.face, p.h * 1.06, { t, phase: p.anim / (p.h * 0.34), v: power === 2 ? 'fire' : '' });
+  };
+  f.classic = classic;
+  return f;
 })(drawHero);
 drawEnt = A.ink(drawEnt);
 { const _draw = draw; draw = function (c, t) { _draw(c, t); if (w) { const L = ART[wi] || ART[0]; A.ambient(c, VW, VH, t, L.amb, 16); A.vignette(c, VW, VH, L.vig == null ? 0.3 : L.vig); } }; }
