@@ -8,6 +8,7 @@
 <body>
 <script src="../lib/kit.js"></script>
 <script src="../lib/art.js"></script>
+<script src="../lib/roster.js"></script>
 <script>
 // Girder Gauntlet: climb the construction site past the barrels the Wrecker bot keeps rolling down, and rescue the puppy at the top.
 K.theme({ bg: '#0a0a14', ink: '#fff6ea', accent: '#ff5a36', accentInk: '#fff' });
@@ -176,7 +177,24 @@ function drawPuppy(c, t) {
   c.restore();
 }
 // you: a welder in a yellow hard hat, orange vest and blue overalls, drawn 1.15x
+// the picked hero (Desire'e / J.T.) instead of the welder
+function heroPick(c, t) {
+  const x = pl.x, y = pl.y, f = pl.face, H = 24;
+  if (pl.climb) { Roster.draw(c, 'climb', x, y + 0.5, 1, H, { phase: pl.y / 6 }); return; }
+  c.fillStyle = 'rgba(0,0,0,.3)'; c.beginPath(); c.ellipse(x, y + 0.2, 6, 1.4, 0, 0, 7); c.fill();
+  const moving = !pl.air && (K.down('left') || K.down('right'));
+  const legs = deadT > 0 ? 'hurt' : pl.air ? (pl.vy < 0 ? 'jump' : 'fall') : moving ? Roster.key('run', { t }) : Roster.key('idle', { t });
+  if (pl.hammer > 0 && !(deadT > 0)) {
+    const sw = Math.sin(t / 70), ang = -1.2 + sw * 1.5, key = legs + (sw < -0.2 ? '#up' : '#swing');
+    Roster.draw(c, key, x, y + 0.5, f, H);
+    const hd = Roster.hand(key, H, f);
+    c.save(); c.translate(x + hd[0], y + hd[1]); c.scale(f, 1); drawHammer(c, 0, 0, ang); c.restore();
+    return;
+  }
+  Roster.draw(c, legs, x, y + 0.5, f, H);
+}
 function drawWelder(c, t) {
+  if (Roster.on() && !drawWelder.classic) return heroPick(c, t);
   const x = pl.x, y = pl.y, f = pl.face, moving = !pl.air && !pl.climb && (K.down('left') || K.down('right')), ph = t / 90, st = moving ? Math.sin(ph) : 0;
   c.save(); c.translate(x, y); c.scale(1.15 * (pl.climb ? 1 : f), 1.15);
   if (pl.climb) { // climbing: seen from behind, arms and legs alternating
@@ -203,6 +221,10 @@ function drawWelder(c, t) {
   const hg = c.createLinearGradient(0, -21, 0, -17); hg.addColorStop(0, '#fff07a'); hg.addColorStop(1, '#d8a010'); c.fillStyle = hg; c.beginPath(); c.ellipse(0.2, -17.6, 3.8, 3.2, 0, Math.PI, 0); c.fill(); c.fillRect(-3.8, -17.8, 9, 1.3); c.fillStyle = '#d8a010'; c.fillRect(-0.2, -20.6, 0.8, 3);
   c.restore();
 }
+Roster.offer({ classic: 'Welder', thumb: (g, W, H, t) => {
+  const sp = pl; pl = { x: 18 / 1.6, y: 50 / 1.6, face: 1, air: false, climb: null, hammer: 0, vy: 0 }; drawWelder.classic = true;
+  try { g.save(); g.scale(1.6, 1.6); drawWelder(g, t); g.restore(); } finally { drawWelder.classic = false; pl = sp; }
+} });
 title();
 { const _draw = draw; draw = function (c, t) { _draw(c, t); A.vignette(c, W, H, 0.35); }; }
 K.run(update, draw);

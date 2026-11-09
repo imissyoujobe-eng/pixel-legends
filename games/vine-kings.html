@@ -9,6 +9,7 @@
 <script src="../lib/kit.js"></script>
 <script src="../lib/plat.js"></script>
 <script src="../lib/art.js"></script>
+<script src="../lib/roster.js"></script>
 <script>
 // Vine Kings: a lemur's jungle romp. Roll through enemies, blast out of barrel cannons, ride the mine cart and spell V-I-N-E in every level.
 K.theme({ bg: '#0a1a0c', ink: '#fffaf0', accent: '#ffd23f', accentInk: '#2a1d00' });
@@ -268,6 +269,10 @@ function draw(c, t) {
   if (cannon) K.text(c, 'JUMP TO BLAST!', (cannon.x - cam.x + 8) * Z, (cannon.y - cam.y - 10) * Z, 9, '#ffd23f');
   if (msgT > 0) K.text(c, msg, VW / 2, 60, 15, '#fff');
 }
+Roster.offer({ classic: 'Bongo', thumb: (g, W, H, t) => {
+  const sp = p, sl = li; p = { x: 0, y: 0, w: 12, h: 14, face: 1, vx: 0, vy: 0, ground: true, anim: 0, inv: 0, spin: 0 }; li = 0; drawLemur.classic = true;
+  try { g.save(); g.scale(1.6, 1.6); drawLemur(g, 5.25, 17.25, t); g.restore(); } finally { drawLemur.classic = false; p = sp; li = sl; }
+} });
 title();
 const ART = [{ pal: A.PAL.jungle, sky: { top: '#1a5a7a', mid: '#5ab0a0', bottom: '#d0f0c0', sun: '#fff8c0', sunY: 40 }, layers: [{ factor: 0.12, base: 150, amp: 50, col: '#2a6a5a', edge: 'rgba(0,0,0,.2)', seed: 3, fog: 'rgba(200,255,220,.3)' }, { t: 'trees', factor: 0.3, base: 190, col: '#1a5a3a', hi: '#2a7a4a', kind: 'round', spacing: 22, size: 1.4, ground: true }, { t: 'trees', factor: 0.5, base: 212, col: '#0e3a22', kind: 'palm', spacing: 40, size: 1.2 }], amb: "leaf", vig: .3 }, { pal: A.PAL.earth, sky: { top: '#3a2a6a', mid: '#ff8a5a', bottom: '#ffd88a', sun: '#ffe8a0', sunY: 80, sunR: 18 }, layers: [{ factor: 0.12, base: 160, amp: 50, col: "#c87a5a", edge: "rgba(0,0,0,.2)", seed: 2, fog: "rgba(255,220,180,.25)" }, { t: "trees", factor: 0.3, base: 200, col: "#6a3a2a", hi: "#8a4a3a", kind: "round", spacing: 30, size: 1.5, ground: true }], amb: "leaf", vig: .25 }, { pal: A.PAL.cave, sky: { top: '#06060f', mid: '#10102a', bottom: '#1a1a3a', clouds: false }, layers: [{ factor: 0.15, base: 150, amp: 70, col: '#18183a', edge: 'rgba(120,140,255,.25)', seed: 7 }, { factor: 0.3, base: 200, amp: 50, col: '#10102a', edge: 'rgba(120,140,255,.3)', seed: 3 }], amb: "dust", vig: .5 }, { pal: Object.assign({}, A.PAL.stone, { base: "#6a6a4a", hi: "#8a8a62", lo: "#44442e", mortar: "#1e1e12", grass: "#5a9a3a", grassHi: "#8ac85a", grassLo: "#3a6a22" }), sky: { top: "#2a3a1a", mid: "#6a7a3a", bottom: "#c8c88a", sun: "#fff0a0", sunY: 40 }, layers: [{ factor: 0.12, base: 150, amp: 60, col: "#4a5a2a", mesa: true, edge: "rgba(0,0,0,.3)", seed: 7, fog: "rgba(220,230,180,.25)" }, { t: "trees", factor: 0.35, base: 205, col: "#2a3a1a", kind: "palm", spacing: 36, size: 1.2 }], amb: "leaf", vig: .35 }];
 
@@ -286,6 +291,22 @@ function spriteInk(fn, BW, BH, offX, offY, xi) {
   };
 }
 drawLemur = spriteInk(drawLemur, 72, 72, 32, 46, 1);
+// the picked hero (Desire'e / J.T.) instead of Bongo: tumbles when rolling or double jumping, stands in the mine cart
+function cartFront(c, x, y) {
+  c.fillStyle = '#4a4a5a'; c.beginPath(); c.moveTo(x - 6, y + 4); c.lineTo(x + 18, y + 4); c.lineTo(x + 16, y + 14); c.lineTo(x - 4, y + 14); c.fill();
+  c.fillStyle = '#7a7a8c'; c.fillRect(x - 6, y + 4, 24, 2.5); c.fillStyle = '#c8a050'; for (let k = -3; k < 17; k += 4) c.fillRect(x + k, y + 8, 1.2, 1.2);
+  c.fillStyle = '#222'; c.beginPath(); c.arc(x, y + 15, 3.2, 0, 7); c.arc(x + 12, y + 15, 3.2, 0, 7); c.fill(); c.fillStyle = '#888'; c.beginPath(); c.arc(x, y + 15, 1.2, 0, 7); c.arc(x + 12, y + 15, 1.2, 0, 7); c.fill();
+}
+function heroPick(c, x, y, t) {
+  const f = p.face, H = 26, cart = LVLS[li].cart;
+  if (rollT > 0) { Roster.draw(c, 'tuck', x + 6, y + 6, f, H, { at: 'center', rot: t / 40 * f }); return; }
+  if (p.spin > 0) { Roster.draw(c, 'tuck', x + 6, y + 4, f, H, { at: 'center', rot: (0.38 - p.spin) / 0.38 * Math.PI * 2 }); if (cart) cartFront(c, x, y); return; }
+  const pose = deadT > 0 ? 'hurt' : cart ? (p.ground ? Roster.key('idle', { t }) : 'jump') : !p.ground || p.blast > 0 ? (p.vy < 0 ? 'jump' : 'fall') : Math.abs(p.vx) > 5 ? Roster.key('run', { phase: p.anim / 8 }) : Roster.key('idle', { t });
+  if (!cart && p.ground && !deadT) { c.fillStyle = 'rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(x + 6, y + 14, 6.5, 1.5, 0, 0, 7); c.fill(); }
+  Roster.draw(c, pose, x + 6, cart ? y + 11 : y + 14.5, f, H);
+  if (cart) cartFront(c, x, y);
+}
+drawLemur = (function (inked) { const f = (c, x, y, t) => Roster.on() && !f.classic ? heroPick(c, x, y, t) : inked(c, x, y, t); return f; })(drawLemur);
 drawEnt = spriteInk(drawEnt, 48, 48, 18, 18, 2);
 { const _draw = draw; draw = function (c, t) { _draw(c, t); if (w) { const L = ART[li] || ART[0]; A.ambient(c, VW, VH, t, L.amb, 16); A.vignette(c, VW, VH, L.vig == null ? 0.3 : L.vig); } }; }
 K.run(update, draw);

@@ -8,6 +8,7 @@
 <body>
 <script src="../lib/kit.js"></script>
 <script src="../lib/art.js"></script>
+<script src="../lib/roster.js"></script>
 <script>
 // Claw Fury: a side-scrolling claw brawler. Rook, an ex-ranger in a green field jacket and red bandana, carves through
 // three robot armies with the steel claws in her bracers. Combos, uppercuts, lunges, RAGE mode and three big bosses.
@@ -156,7 +157,24 @@ function heroPose(h) {
   P.cF = cF; P.cB = cB; P.head = add(sh, [1.6 + P.lean * 2, -7]);
   P.wind = clamp(-Math.abs(h.vx) * 0.04, -4, 0) + (h.ground ? 0 : -1); P.flap = Math.sin(T * 9) * 0.6 - Math.abs(h.vx) * 0.02;
   P.blink = h.blink < 0.12; P.rage = h.rageT > 0;
+  P.rkey = Roster.on() ? heroKey(h) : null;
   return P;
+}
+// which picked-hero pose matches Rook's current move
+function heroKey(h) {
+  if (h.dead > 0 || h.hurtT > 0) return 'hurt';
+  const a = h.atk;
+  if (a) {
+    const d = ATK[a.k], wind = a.t < d.a0;
+    if (a.k === 'c1' || a.k === 'c3') return wind ? 'idle0#clawBack' : 'run0#claw';
+    if (a.k === 'c2') return wind ? 'idle0#clawDown' : 'run2#clawUp';
+    if (a.k === 'up') return wind ? 'crouch#clawDown' : 'jump#clawUp';
+    if (a.k === 'air') return 'jump#clawDown';
+    if (a.k === 'lunge') return 'run0#claw';
+  }
+  if (!h.ground) return h.vy < 0 ? 'jump' : 'fall';
+  if (Math.abs(h.vx) > 12) return 'run' + (((Math.floor(h.run / (Math.PI / 2)) % 4) + 4) % 4);
+  return 'idle' + (Math.floor(T * 1.6) % 2);
 }
 function heroLeg(c, H, Kn, F, back) {
   ln(c, [H, Kn, F], 5, C(back ? HP.pd : HP.pants));
@@ -229,6 +247,11 @@ function heroHead(c, P) {
   c.restore();
 }
 function drawHero(c, x, y, face, P) {
+  if (Roster.on() && !drawHero.classic) {
+    if (P.rage) A.glow(c, x, y - 22, 30, '255,120,40', 0.35);
+    Roster.draw(c, P.rkey || 'idle0', x, y + 0.5, face, 44, { rot: P.rot || 0 });
+    return;
+  }
   c.save(); c.translate(x, y); c.scale(face, 1); if (P.rot) c.rotate(P.rot);
   c.lineCap = 'round'; c.lineJoin = 'round';
   heroArm(c, P.sB, P.eB, P.hB, true, P.cB, P.rage);
@@ -947,7 +970,8 @@ function bar(c, x, y, w, h, k, c1, c2) { c.fillStyle = INK; c.fillRect(x - 1, y 
 function drawUI(c) {
   const h = hero;
   c.fillStyle = 'rgba(10,8,12,.55)'; rr(c, 3, 3, 94, 24, 5); c.fill();
-  c.save(); c.translate(13, 17); c.scale(1.15, 1.15); heroHead(c, { head: [0, 0], htilt: 0, wind: 0, blink: false, rage: h.rageT > 0 }); c.restore();
+  if (Roster.on()) { c.save(); c.beginPath(); c.rect(3, 3, 22, 24); c.clip(); Roster.draw(c, 'idle0', 13.5, 27, 1, 42, { top: 23 }); c.restore(); }
+  else { c.save(); c.translate(13, 17); c.scale(1.15, 1.15); heroHead(c, { head: [0, 0], htilt: 0, wind: 0, blink: false, rage: h.rageT > 0 }); c.restore(); }
   const low = h.hp < 30, regen = h.noHit > 3 && h.hp < 100;
   bar(c, 25, 7, 60, 6, h.hp / 100, low ? '#ff6a5a' : '#8cff7a', low ? '#b8201a' : '#2e9a3a');
   if (regen) { c.fillStyle = 'rgba(140,255,150,' + (0.5 + Math.sin(T * 10) * 0.4) + ')'; c.font = '8px Bungee, Impact, sans-serif'; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText('+', 87, 10.5); A.glow(c, 55, 10, 26, '120,255,140', 0.18 + Math.sin(T * 10) * 0.08); }
@@ -1040,6 +1064,10 @@ function draw(c) {
   c.restore();
   if (state === 'play') drawUI(c);
 }
+Roster.offer({ classic: 'Rook', thumb: (g, W, H, t) => {
+  const st = { atk: null, dead: 0, hurtT: 0, ground: true, vx: 0, vy: 0, run: 0, blink: 1, rageT: 0 }; drawHero.classic = true;
+  try { drawHero(g, 18, 50, 1, heroPose(st)); } finally { drawHero.classic = false; }
+} });
 loadStage(); state = 'title'; title();
 K.run(update, draw);
 </script>

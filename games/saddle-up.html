@@ -9,6 +9,7 @@
 <script src="../lib/kit.js"></script>
 <script src="../lib/plat.js"></script>
 <script src="../lib/art.js"></script>
+<script src="../lib/roster.js"></script>
 <script>
 // Saddle Up: hatch a dinosaur buddy, ride it through five lands, and CHOMP anything in your way. Find the five star coins in each land.
 K.theme({ bg: '#0c1a10', ink: '#fffaf0', accent: '#7cff6b', accentInk: '#0a2a00' });
@@ -247,6 +248,10 @@ function draw(c, t) {
   drawHero(c, Math.round(p.x - cam.x), Math.round(p.y - cam.y), t);
   if (msgT > 0) K.text(c, msg, VW / 2, 56, 13, '#fff');
 }
+Roster.offer({ classic: 'Cowpoke', thumb: (g, W, H, t) => {
+  const sp = p, sb = big, sd = dino; p = { x: 0, y: 0, w: 11, h: 28, face: 1, vx: 0, vy: 0, ground: true, anim: 0, inv: 0 }; big = true; dino = null; drawHero.classic = true;
+  try { g.save(); g.scale(1.3, 1.3); drawHero(g, 18 / 1.3 - 5.5, 50 / 1.3 - 28, t); g.restore(); } finally { drawHero.classic = false; p = sp; big = sb; dino = sd; }
+} });
 title();
 const ART = [{ pal: A.PAL.earth, sky: { top: '#2a7ae0', mid: '#8ad0ff', bottom: '#e8f8ff', sun: '#fff6c0', sunY: 50 }, layers: [{ factor: 0.12, base: 150, amp: 45, col: '#7ab8a8', edge: 'rgba(0,0,0,.18)', seed: 2, fog: 'rgba(220,240,255,.35)' }, { factor: 0.28, base: 185, amp: 40, col: '#4a9a5a', edge: 'rgba(0,0,0,.3)', seed: 5 }, { t: 'trees', factor: 0.45, base: 212, col: '#2a7a3a', hi: '#4aa04a', kind: 'round', spacing: 28, ground: true }], amb: "leaf", vig: .2 }, { pal: A.PAL.desert, sky: { top: "#5a8ad8", mid: "#ffd8a0", bottom: "#fff0d0", sun: "#fff8d0", sunY: 40, sunR: 16 }, layers: [{ factor: 0.12, base: 160, amp: 60, col: '#a05a5a', bands: ['rgba(255,200,150,.25)', 'rgba(120,40,40,.25)'], mesa: true, edge: 'rgba(0,0,0,.25)', seed: 1, fog: 'rgba(255,220,180,.2)' }, { factor: 0.3, base: 195, amp: 50, col: '#7a3a3a', bands: ['rgba(255,160,100,.3)', 'rgba(60,20,20,.3)'], mesa: true, edge: 'rgba(0,0,0,.45)', seed: 4 }, { t: 'trees', factor: 0.5, base: 215, col: '#4a2a2a', kind: 'palm', spacing: 46 }], amb: "dust", vig: .25 }, { pal: Object.assign({}, A.PAL.jungle, { base: "#4a4a3a", hi: "#6a6a52", lo: "#2e2e22" }), sky: { top: "#5a7a78", mid: "#a8c8c0", bottom: "#e0f0e8", clouds: true, cloud: "rgba(240,255,250,.6)" }, layers: [{ factor: 0.12, base: 160, amp: 30, col: "#7a9a90", edge: "rgba(0,0,0,.15)", seed: 3, fog: "rgba(230,255,245,.5)" }, { t: "trees", factor: 0.35, base: 205, col: "#3a5a4a", kind: "pine", spacing: 26, size: 1.3, ground: true }], amb: "dust", vig: .3 }, { pal: Object.assign({}, A.PAL.earth, { base: "#6a3a22", hi: "#8a5434", lo: "#4a2412", grass: "#ff8ac8", grassHi: "#ffc8e8", grassLo: "#c05a9a" }), sky: { top: "#6a4ad8", mid: "#c8a0ff", bottom: "#ffe0f0", sun: "#fff0f8", sunY: 50 }, layers: [{ factor: 0.12, base: 150, amp: 70, col: "#8a5a3a", bands: ["rgba(255,220,240,.25)"], edge: "rgba(0,0,0,.25)", seed: 5 }, { factor: 0.3, base: 195, amp: 45, col: "#5a3420", edge: "rgba(0,0,0,.35)", seed: 1 }], amb: "leaf", vig: .25 }, { pal: A.PAL.lavaRock, sky: { top: '#060208', mid: '#2a0a0a', bottom: '#7a1a0a', clouds: false }, layers: [{ factor: 0.15, base: 170, amp: 50, col: '#2a0a0a', mesa: true, edge: 'rgba(255,90,30,.35)', seed: 9 }, { factor: 0.3, base: 205, amp: 40, col: '#180606', mesa: true, edge: 'rgba(255,90,30,.4)', seed: 2 }], amb: "ember", vig: .45, glow: "255,80,20" }];
 
@@ -266,6 +271,17 @@ function spriteInk(fn, BW, BH, offX, offY, xi) {
 }
 drawDino = spriteInk(drawDino, 64, 56, 22, 34, 2);
 drawHero = spriteInk(drawHero, 56, 60, 22, 40, 1);
+// the picked hero (Desire'e / J.T.) instead of the cowpoke: same moves, and a proper seat in the saddle
+function heroPick(c, x, y, t) {
+  if (p.inv > 0 && Math.floor(t / 60) % 2) return;
+  const f = p.face, H = (big ? HB : HS) * 1.2;
+  if (riding()) { const S = p.h / 24 * 1.05; Roster.draw(c, 'ride', x + p.w / 2 - f * 5, y + p.h - 10 - 8 * S, f, H, { t }); return; }
+  const fx = x + p.w / 2, fy = y + p.h;
+  if (p.ground && !deadT) { c.fillStyle = 'rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(fx, fy, 6 * H / 28, 1.4 * H / 28, 0, 0, 7); c.fill(); }
+  const pose = deadT > 0 ? 'hurt' : !p.ground ? (p.vy < 0 ? 'jump' : 'fall') : Math.abs(p.vx) > 5 ? 'run' : 'idle';
+  Roster.draw(c, pose, fx, fy + 0.5, f, H, { t, phase: p.anim / (H * 0.3) });
+}
+drawHero = (function (inked) { const f = (c, x, y, t) => Roster.on() && !f.classic ? heroPick(c, x, y, t) : inked(c, x, y, t); return f; })(drawHero);
 drawEnt = A.ink(drawEnt);
 { const _draw = draw; draw = function (c, t) { _draw(c, t); if (w) { const L = ART[li] || ART[0]; A.ambient(c, VW, VH, t, L.amb, 16); A.vignette(c, VW, VH, L.vig == null ? 0.3 : L.vig); } }; }
 K.run(update, draw);

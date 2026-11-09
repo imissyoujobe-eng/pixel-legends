@@ -9,6 +9,7 @@
 <script src="../lib/kit.js"></script>
 <script src="../lib/plat.js"></script>
 <script src="../lib/art.js"></script>
+<script src="../lib/roster.js"></script>
 <script>
 // Knight Fright: a knight in shining (soon missing) armor storms a haunted graveyard to rescue the princess. One hit takes your armor, the next takes you.
 K.theme({ bg: '#0a0a12', ink: '#eef0ff', accent: '#7ad0ff', accentInk: '#001a2a' });
@@ -69,7 +70,8 @@ function update(dt) {
   P.control(w, p, dt, { run: false });
   if (p.fell) { p.fell = false; armor = false; p.inv = 0; hurt(); return; }
   const Wp = WEAP[weap];
-  if (K.hit('b') && shots.length < Wp.max) { shots.push({ x: p.x + p.w / 2, y: p.y + 7, vx: p.face * Wp.spd, vy: Wp.arc === 1 ? -120 : Wp.arc === 2 ? -230 : 0, k: weap, t: 1.4 }); K.beep(600, 0.05, { to: 300, type: 'triangle' }); }
+  if (p.throwT > 0) p.throwT -= dt;
+  if (K.hit('b') && shots.length < Wp.max) { p.throwT = 0.18; shots.push({ x: p.x + p.w / 2, y: p.y + 7, vx: p.face * Wp.spd, vy: Wp.arc === 1 ? -120 : Wp.arc === 2 ? -230 : 0, k: weap, t: 1.4 }); K.beep(600, 0.05, { to: 300, type: 'triangle' }); }
   shots.forEach(s => { s.t -= dt; if (WEAP[s.k].arc) s.vy += 500 * dt; s.x += s.vx * dt; s.y += s.vy * dt;
     if (P.isSolid(P.tile(w, s.x, s.y))) { if (s.k === 'o' && !s.burn) { s.burn = 1.2; s.vx = 0; s.vy = 0; s.y = Math.floor(s.y / T) * T - 4; s.t = 1.2; } else if (!s.burn) s.t = 0; }
     for (const f of foes) if (f.alive && s.x > f.x - 3 && s.x < f.x + f.w + 3 && s.y > f.y - 3 && s.y < f.y + f.h + 3) { hitFoe(f, s.k === 'x' ? 2 : 1); if (!s.burn) { s.t = 0; break; } } });
@@ -104,6 +106,13 @@ function camFollow(dt) {
   const ty = p.y - VH * 0.58; cam.y += (ty - cam.y) * Math.min(1, dt * 6); cam.y = Math.max(0, Math.min(w.py - VH, cam.y));
 }
 function knight(c, x, y, face, t, moving) {
+  if (Roster.on() && !knight.classic) {
+    const fx = x + 5.5, fy = y + 20, H = 23;
+    A.shadow(c, fx, fy, 6);
+    const pose = p.throwT > 0 ? 'throw1' : !p.ground ? (p.vy < 0 ? 'jump' : 'fall') : Math.abs(p.vx) > 5 ? Roster.key('run', { phase: p.anim / 8 }) : Roster.key('idle', { t });
+    Roster.draw(c, pose, fx, fy + 0.5, face, H, { v: armor ? 'armor' : '' });
+    return;
+  }
   const step = moving ? Math.sin(t / 70) * 2 : 0;
   const st = step * 0.5, fx2 = face > 0;
   if (armor) {
@@ -161,6 +170,10 @@ function tomb(c, x, y, tx) { A.shadow(c, x + 8, y + 16, 8); c.fillStyle = A.INK;
 function artTile(c, ch, x, y, tx, ty, i, set, pal) { const sol = (a, b) => a < 0 || a >= w.cols || b >= w.rows || (b >= 0 && set.indexOf(w.g[b][a]) >= 0); A.tile(c, ch + i, x, y, A.edges(sol, tx, ty), tx, ty, pal); }
 // (sprite parts carry their own ink outline, so no canvas filter is needed — it was very slow on phones)
 { const _draw = draw; draw = function (c, t) { _draw(c, t); if (w) { A.ambient(c, VW, VH, t, si === 2 ? 'ember' : 'dust', 14); A.vignette(c, VW, VH, 0.5); } }; }
+Roster.offer({ classic: 'Knight', thumb: (g, W, H, t) => {
+  const sa = armor; armor = true; knight.classic = true;
+  try { g.save(); g.scale(1.55, 1.55); knight(g, 6.1, 11.5, 1, t, 0); g.restore(); } finally { knight.classic = false; armor = sa; }
+} });
 newGame(); state = 'title'; title(); K.run(update, draw);
 </script>
 </body>

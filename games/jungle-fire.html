@@ -9,6 +9,7 @@
 <script src="../lib/kit.js"></script>
 <script src="../lib/plat.js"></script>
 <script src="../lib/art.js"></script>
+<script src="../lib/roster.js"></script>
 <script>
 // Jungle Fire: run and gun through three stages. Aim in eight directions, grab weapon capsules and take down the fortress wall at the end of each stage.
 K.theme({ bg: '#0c140a', ink: '#fffaf0', accent: '#ff5a36', accentInk: '#fff' });
@@ -318,7 +319,8 @@ function drawTank(c, tk, t) {
   g = c.createLinearGradient(0, -21, 0, -14); g.addColorStop(0, hull[0]); g.addColorStop(1, hull[1]); c.fillStyle = g; c.beginPath(); c.roundRect(-7, -21, 14, 7, 3); c.fill();
   c.fillStyle = '#1e2214'; c.beginPath(); c.arc(-1, -21, 2.6, Math.PI, 0); c.fill();
   // you, popping out of the hatch
-  if (ride === tk) { c.fillStyle = '#ffcf9e'; c.beginPath(); c.arc(-1, -23.5, 2.2, 0, 7); c.fill(); c.fillStyle = '#e63946'; c.fillRect(-3.3, -25, 4.8, 1.2); c.fillRect(-4.8 - Math.sin(t / 90), -24.6, 2, 0.8); }
+  if (ride === tk && Roster.on()) Roster.draw(c, 'idle0', -1, -20.5, 1, 20, { top: 25 });
+  else if (ride === tk) { c.fillStyle = '#ffcf9e'; c.beginPath(); c.arc(-1, -23.5, 2.2, 0, 7); c.fill(); c.fillStyle = '#e63946'; c.fillRect(-3.3, -25, 4.8, 1.2); c.fillRect(-4.8 - Math.sin(t / 90), -24.6, 2, 0.8); }
   c.restore();
   if (hurt && Math.random() < 0.25) fx.push({ smoke: true, x: x + 10, y: y + 2, vx: K.rnd(-6, 6), vy: -20, l: 0.9 });
   if (tk.mode === 'burning' || tk.mode === 'abandoned') { for (let k = 0; k < 4; k++) { const fx0 = x + 6 + k * 7, fh = 6 + Math.sin(t / 50 + k * 2) * 3; c.fillStyle = '#ff5a1e'; c.beginPath(); c.ellipse(fx0, y + 2 - fh / 2, 3, fh, 0, 0, 7); c.fill(); c.fillStyle = '#ffd23f'; c.beginPath(); c.ellipse(fx0, y + 3 - fh / 3, 1.5, fh / 2, 0, 0, 7); c.fill(); } A.glow(c, x + 17, y, 30, '255,120,40', 0.4); }
@@ -326,6 +328,16 @@ function drawTank(c, tk, t) {
 }
 function drawCan(c, cn, t) { const x = cn.x, y = cn.y + Math.sin(t / 250) * 0.8; c.fillStyle = '#c0281e'; c.beginPath(); c.roundRect(x, y, 9, 12, 1.5); c.fill(); c.fillStyle = '#e8503a'; c.fillRect(x + 1, y + 1, 2, 10); c.strokeStyle = '#7a140e'; c.lineWidth = 0.6; c.beginPath(); c.moveTo(x + 1, y + 3); c.lineTo(x + 8, y + 10); c.moveTo(x + 8, y + 3); c.lineTo(x + 1, y + 10); c.stroke(); c.fillStyle = '#ffd23f'; c.fillRect(x + 6, y - 2, 2, 2.5); c.fillStyle = '#2a2a2a'; c.fillRect(x + 1.5, y - 1.5, 3.5, 1.5); }
 // you: commando in a red bandana, olive vest and camo pants
+// the picked hero (Her / Him): rifle aimed in 8 directions, lying flat when prone
+function heroPick(c, t) {
+  const f = p.face, x = p.x + p.w / 2, y = p.y + p.h, H = 27;
+  if (p.prone && !deadT) { A.shadow(c, x, y, 9); Roster.draw(c, 'idle0@u', x + f * 2, y - 5, f, H, { at: 'center', rot: Math.PI / 2 }); return; }
+  A.shadow(c, x, y, 5);
+  if (deadT > 0) { Roster.draw(c, 'hurt', x, y + 0.5, f, H); return; }
+  const d = aimDir(), aim = d[0] === 0 ? (d[1] < 0 ? 'u' : 'd') : d[1] < 0 ? 'uf' : d[1] > 0 ? 'df' : 'f';
+  const legs = !p.ground ? (p.vy < 0 ? 'jump' : 'fall') : Math.abs(p.vx) > 5 ? Roster.key('run', { phase: p.anim / 9 }) : Roster.key('idle', { t });
+  Roster.draw(c, legs + '@' + aim, x, y + 0.5, f, H);
+}
 function drawHero(c, t) {
   const f = p.face, x = p.x + p.w / 2, y = p.y + p.h;
   if (p.prone) {
@@ -400,6 +412,10 @@ function draw(c, t) {
   }
   if (msgT > 0) { const m = msg.split(': '); m.forEach((ln, i) => K.text(c, ln, VW / 2, 56 + i * 17, m.length > 1 && i ? 11 : 14, '#fff')); }
 }
+Roster.offer({ classic: 'Commando', thumb: (g, W, H, t) => {
+  const sp = p, sd = deadT; p = { x: 0, y: 0, w: 10, h: 18, face: 1, vx: 0, vy: 0, ground: true, anim: 0, inv: 0, prone: false }; deadT = 0; drawHero.classic = true;
+  try { g.save(); g.scale(1.55, 1.55); p.x = 18 / 1.55 - 5; p.y = 50 / 1.55 - 18; drawHero(g, t); g.restore(); } finally { drawHero.classic = false; p = sp; deadT = sd; }
+} });
 title();
 const ART = [{ pal: A.PAL.jungle, sky: { top: '#1a5a7a', mid: '#5ab0a0', bottom: '#d0f0c0', sun: '#fff8c0', sunY: 40 }, layers: [{ factor: 0.12, base: 150, amp: 50, col: '#2a6a5a', edge: 'rgba(0,0,0,.2)', seed: 3, fog: 'rgba(200,255,220,.3)' }, { t: 'trees', factor: 0.3, base: 190, col: '#1a5a3a', hi: '#2a7a4a', kind: 'round', spacing: 22, size: 1.4, ground: true }, { t: 'trees', factor: 0.5, base: 212, col: '#0e3a22', kind: 'palm', spacing: 40, size: 1.2 }], amb: "leaf", vig: .3 }, { pal: A.PAL.desert, sky: { top: '#3a2a6a', mid: '#ff8a5a', bottom: '#ffd88a', sun: '#ffe8a0', sunY: 80, sunR: 18 }, layers: [{ factor: 0.12, base: 160, amp: 60, col: '#a05a5a', bands: ['rgba(255,200,150,.25)', 'rgba(120,40,40,.25)'], mesa: true, edge: 'rgba(0,0,0,.25)', seed: 1, fog: 'rgba(255,220,180,.2)' }, { factor: 0.3, base: 195, amp: 50, col: '#7a3a3a', bands: ['rgba(255,160,100,.3)', 'rgba(60,20,20,.3)'], mesa: true, edge: 'rgba(0,0,0,.45)', seed: 4 }, { t: 'trees', factor: 0.5, base: 215, col: '#4a2a2a', kind: 'palm', spacing: 46 }], amb: "dust", vig: .25 }, { pal: Object.assign({}, A.PAL.cave, { base: "#5a2a4a", hi: "#8a4a6a", lo: "#3a1a2a", mortar: "#1a0a14" }), sky: { top: "#14040e", mid: "#3a0a2a", bottom: "#6a1a4a", clouds: false }, layers: [{ factor: 0.15, base: 160, amp: 60, col: "#2a0a20", edge: "rgba(255,80,200,.3)", seed: 6 }, { factor: 0.3, base: 200, amp: 40, col: "#1a0614", edge: "rgba(255,80,200,.35)", seed: 2 }], amb: "ember", vig: .45 }];
 
@@ -427,6 +443,7 @@ function inkFast(fn, box) {
 }
 drawSoldier = inkFast(drawSoldier, (c, e) => ({ x: e.x - 22, y: e.y - 22, w: e.w + 44, h: e.h + 30 }));
 drawHero = inkFast(drawHero, () => ({ x: p.x - 26, y: p.y - 24, w: p.w + 52, h: p.h + 30 }));
+drawHero = (function (inked) { const f = (c, t) => Roster.on() && !f.classic ? heroPick(c, t) : inked(c, t); return f; })(drawHero);
 drawTank = inkFast(drawTank, (c, tk) => ({ x: tk.x - 30, y: tk.y - 30, w: tk.w + 60, h: tk.h + 40 }));
 { const _draw = draw; draw = function (c, t) { _draw(c, t); if (w) { const L = ART[si] || ART[0]; A.ambient(c, VW, VH, t, L.amb, 16); A.vignette(c, VW, VH, L.vig == null ? 0.3 : L.vig); } }; }
 K.run(update, draw);

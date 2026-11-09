@@ -9,6 +9,7 @@
 <script src="../lib/kit.js"></script>
 <script src="../lib/plat.js"></script>
 <script src="../lib/art.js"></script>
+<script src="../lib/roster.js"></script>
 <script>
 // Shadow Strike: a ninja rescue mission. Throw stars, slash up close, free every hostage, and save your ninja magic for a crowd.
 K.theme({ bg: '#0a0a14', ink: '#f0f0ff', accent: '#ff3a4a', accentInk: '#fff' });
@@ -115,6 +116,19 @@ function follow() {
 }
 // ---- characters, drawn 1.25x their hit boxes with shading ----
 const OUTFIT = { me: ['#1a1a3a', '#2a2a5a', '#ff3a4a'], guard: ['#6a4a3a', '#8a6248', '#c8a050'], gun: ['#3a5a3a', '#4e7a4e', '#c8a050'], shield: ['#4a4a6a', '#6a6a8e', '#9aa0b0'], ninja: ['#1e1e22', '#34343a', '#7a2a2a'] };
+// the picked hero (Her / Him) as the ninja: blade slashes, star tosses, a tucked spin when flipping
+function heroPick(c, t) {
+  const fx = p.x + 5, fy = p.y + 18, H = 27, face = p.face;
+  if (p.flip && !p.ground && slashT <= 0 && !(p.throwT > 0)) {
+    spinArcs(c, p.x, p.y, face);
+    Roster.draw(c, 'tuck', p.x + 5, p.y + 9, face, H, { at: 'center', rot: p.flip * Math.PI * 2 * 2.3 });
+    return;
+  }
+  c.fillStyle = 'rgba(0,0,0,.3)'; c.beginPath(); c.ellipse(fx, fy, 7, 1.7, 0, 0, 7); c.fill();
+  const pose = slashT > 0 ? 'slash1' : p.throwT > 0 ? 'throw1' : !p.ground ? (p.vy < 0 ? 'jump' : 'fall') : Math.abs(p.vx) > 5 ? Roster.key('run', { phase: p.anim / 9 }) : Roster.key('idle', { t });
+  Roster.draw(c, pose, fx, fy + 0.5, face, H);
+  if (slashT > 0) { c.strokeStyle = 'rgba(255,255,255,.9)'; c.lineWidth = 1.6; c.beginPath(); c.arc(p.x + 5 + face * 7, p.y + 6, 15, face > 0 ? -1.3 : 1.85, face > 0 ? 1.3 : 4.45); c.stroke(); }
+}
 function ninja(c, x, y, face, t, kind, slash, moving, air) {
   const o = OUTFIT[kind] || OUTFIT.me, st = moving ? Math.sin(t / 60) : 0;
   const SC = kind === 'me' ? 1.4 : 1.25; c.save(); c.translate(x + 5, y + 18); c.scale(SC * face, SC);
@@ -270,7 +284,8 @@ function draw(c, t) {
     ninja(c, f.x, f.y, face, t + f.x * 7, f.k, false, f.k === 'guard' || f.k === 'shield' || (f.k === 'ninja' && !f.ground), f.k === 'ninja' && !f.ground); });
   if (deadT <= 0 && !(p.inv > 0 && Math.floor(t / 80) % 2) && state !== 'title') {
     // somersault while airborne after a jump; he uncurls for a moment whenever he slashes
-    if (p.flip && !p.ground && slashT <= 0 && !(p.throwT > 0)) spinArcs(c, p.x, p.y, p.face), ninjaBall(c, p.x, p.y, p.face, t, p.flip * Math.PI * 2 * 2.3);
+    if (Roster.on()) heroPick(c, t);
+    else if (p.flip && !p.ground && slashT <= 0 && !(p.throwT > 0)) spinArcs(c, p.x, p.y, p.face), ninjaBall(c, p.x, p.y, p.face, t, p.flip * Math.PI * 2 * 2.3);
     else ninja(c, p.x, p.y, p.face, t, 'me', slashT > 0, p.ground && Math.abs(p.vx) > 5, !p.ground);
   }
   stars.forEach(s => { c.save(); c.translate(s.x, s.y); c.rotate(t / 40); c.fillStyle = '#e8ecf4'; for (let k = 0; k < 4; k++) { c.rotate(Math.PI / 2); c.beginPath(); c.moveTo(0, -1); c.lineTo(5, 0); c.lineTo(0, 1); c.fill(); } c.fillStyle = '#5a5e6a'; c.beginPath(); c.arc(0, 0, 1, 0, 7); c.fill(); c.restore(); });
@@ -303,6 +318,7 @@ function spriteInk(fn, BW, BH, offX, offY, xi) {
 ninja = spriteInk(ninja, 80, 72, 36, 40, 1); ninjaBall = spriteInk(ninjaBall, 56, 56, 23, 18, 1); drawHostage = spriteInk(drawHostage, 44, 52, 16, 30, 1);
 { const db = spriteInk((c, x, y, f, t) => drawBoss0(c, f, t), 100, 100, 40, 66, 1); drawBoss = (c, f, t) => db(c, f.x, f.y, f, t); }
 { const _draw = draw; draw = function (c, t) { _draw(c, t); if (w) { A.ambient(c, VW, VH, t, si === 2 ? 'ember' : 'leaf', 14); A.vignette(c, VW, VH, 0.4); } }; }
+Roster.offer({ classic: 'Ninja', thumb: (g, W, H, t) => { g.save(); g.scale(1.25, 1.25); ninja(g, 18 / 1.25 - 5, 49 / 1.25 - 18, 1, t, 'me', false, false, false); g.restore(); } });
 newGame(); state = 'title'; title(); K.run(update, draw);
 </script>
 </body>
