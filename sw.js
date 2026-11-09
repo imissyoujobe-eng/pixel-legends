@@ -1,5 +1,5 @@
 // Offline cache for Nine-10-Doe Arcade. Bump VERSION whenever you add or change a game.
-const VERSION = "legends-v34";
+const VERSION = "legends-v35";
 const FILES = [
  "./",
  "./games.js",
