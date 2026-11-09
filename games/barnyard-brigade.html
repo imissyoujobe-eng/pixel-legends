@@ -230,6 +230,7 @@ function nextTurn() {
 }
 function endGame() {
   if (state !== 'play') return; state = 'over'; const win = alive(0).length > 0;
+  K.record('barnyard-wins', win ? 'W' : 'L');
   if (win) { wins++; level++; try { localStorage.setItem('pa-barnyard-wins', wins); } catch (e) {} K.tune([523, 659, 784, 1047, 1319], 0.1); }
   else K.tune([392, 330, 262, 196], 0.15);
   setTimeout(() => K.card({ title: win ? 'PIGS WIN!' : 'GOATS WIN', text: win ? 'The barnyard is yours! ' + alive(0).length + ' pig' + (alive(0).length === 1 ? '' : 's') + ' still standing. The goats will aim better next time.' : 'Your squad got turned into bacon. Regroup and try again!', best: 'WINS ' + wins, button: win ? 'Next battle' : 'Rematch', onStart: start }), 900);

@@ -100,6 +100,7 @@ function endHalf() {
 }
 function endGame() {
   if (state !== 'play') return; state = 'over'; const win = runs[1] > runs[0];
+  K.record('diamond-wins', win ? 'W' : 'L');
   if (win) { wins++; try { localStorage.setItem('pa-diamond-wins', wins); } catch (e) {} K.tune([523, 659, 784, 1047, 1319, 1568], 0.12); } else K.tune([392, 330, 262], 0.18);
   K.card({ title: win ? 'YOU WIN!' : runs[1] === runs[0] ? 'TIE GAME' : 'CPU WINS', text: 'Final score: You ' + runs[1] + ', CPU ' + runs[0] + '.', best: 'WINS ' + wins, button: 'Play again', onStart: start });
 }
