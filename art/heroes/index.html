@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Hero Sprite Sheet</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Rubik:wght@400;600&display=swap">
+<style>
+:root{--bg:#0d1626;--panel:#16223f;--line:#26365e;--ink:#f3f0ff;--muted:#b4acd8;--accent:#ffb02e;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Rubik,system-ui,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:24px 16px 48px}
+h1{font-family:Bungee,Impact,sans-serif;font-weight:400;font-size:clamp(28px,7vw,48px);margin:0;line-height:1.05}
+h1 span{color:var(--accent)}
+p{color:var(--muted);line-height:1.5;margin:8px 0 0;max-width:60ch}
+h2{font-family:Bungee,Impact,sans-serif;font-weight:400;font-size:20px;margin:32px 0 12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
+figure{margin:0;background:var(--panel);border-radius:14px;padding:8px 6px 6px;text-align:center}
+canvas{width:72px;height:104px;image-rendering:pixelated;display:block;margin:0 auto}
+figcaption{font-size:11.5px;color:var(--muted);margin-top:4px;word-break:break-word}
+.big{display:flex;gap:16px;flex-wrap:wrap;margin-top:18px}
+.big img{max-width:100%;border-radius:14px;image-rendering:pixelated}
+a{color:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Desire'e <span>&amp;</span> J.T.</h1>
+  <p>Every pose the two heroes use in the Nine-10-Doe Arcade side-scrollers. These are painted live by <code>lib/roster.js</code>, the same code the games use, so this page always matches the games.</p>
+  <div class="big"><img src="heroes-preview.png" alt="Desire'e and J.T. standing on a grassy hill, with all their frames below"><img src="heroes-run.gif" alt="Desire'e and J.T. running and jumping"></div>
+  <div id="sheets"></div>
+  <p><a href="../../index.html">Back to the arcade</a></p>
+</main>
+<script src="../../lib/roster.js"></script>
+<script>
+(function () {
+  var groups = [
+    ['Moving', ['idle0', 'idle1', 'run0', 'run1', 'run2', 'run3', 'jump', 'fall', 'crouch', 'crawl0', 'crawl1', 'hurt', 'win']],
+    ['Action', ['throw0', 'throw1', 'slash0', 'slash1', 'slash2', 'hammer0', 'hammer1', 'idle0#clawBack', 'run0#claw', 'jump#clawUp', 'tuck', 'climb0', 'climb1']],
+    ['Aiming', ['idle0@f', 'run0@f', 'run2@f', 'idle0@uf', 'idle0@u', 'jump@df', 'jump@d']],
+    ['Riding and powers', ['ride0', 'ride1', 'fly0+tail', 'run0+tail', 'idle0|fire', 'run2|fire', 'idle0|armor', 'run2|armor']]
+  ];
+  var host = document.getElementById('sheets');
+  [['her', "Desire'e"], ['him', 'J.T.']].forEach(function (h) {
+    groups.forEach(function (g) {
+      var t = document.createElement('h2'); t.textContent = h[1] + ' · ' + g[0]; host.appendChild(t);
+      var grid = document.createElement('div'); grid.className = 'grid'; host.appendChild(grid);
+      g[1].forEach(function (k) {
+        var parts = k.split('|'), fig = document.createElement('figure'), cv = document.createElement('canvas'), cap = document.createElement('figcaption');
+        cv.width = 36; cv.height = 52; cv.getContext('2d').drawImage(Roster.frame(h[0], parts[0], parts[1]), 0, 0);
+        cap.textContent = k.replace('|', ' · '); fig.appendChild(cv); fig.appendChild(cap); grid.appendChild(fig);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>
